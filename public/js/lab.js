@@ -6,7 +6,7 @@ import { AudioSensor, loudThreshold } from "./audio.js";
 import { VisionSensor } from "./vision.js";
 import { Coach } from "./coach.js";
 import { PROFILES, LOUD_LEVELS, noisyLevel, cueTypeOf } from "./profiles.js";
-import { Perception, readExpression, readBody, lookingAtCamera } from "./perception.js";
+import { Perception, readExpression, readBody, lookingAtCamera, eyesDown } from "./perception.js";
 import { emergencyColours } from "./scene.js";
 
 // Faces, bodies, objects and scene labels, recorded per clip when perception is on.
@@ -58,6 +58,15 @@ export const CLIPS = [
   { id: "waving", kind: "waving, smiling, crowd", truth: "crowd", title: "Bernie Sanders waves farewell to a crowd", lic: "CC BY 3.0 · NextGenNoise", url: "https://upload.wikimedia.org/wikipedia/commons/1/1d/Bernie_Sanders_waves_farewell_to_an_uproarious_crowd_where_he_grew_up_in_Brooklyn_New_York.webm" },
   { id: "laughing", kind: "laughing audience", truth: "crowd", title: "Ig Nobel favourite moment", lic: "CC BY 3.0 · Improbable Research", url: "https://upload.wikimedia.org/wikipedia/commons/e/e9/%22We_Couldn%27t_Find_Our_Miss_Sweetie_Poo%22%E2%80%93_an_Ig_Nobel_Prize_favorite_moment.webm" },
   { id: "dialogue", kind: "two people talking", truth: "indoors", title: "Dialogue (Dominique Bovy, 1983)", lic: "CC BY-SA 3.0 fr · Rama", url: "https://upload.wikimedia.org/wikipedia/commons/0/0b/Dialogue-Dominique_Bovy-1983-001-0001-0250.ogv" },
+  // Faces of many kinds of people, close and far, alone and in groups (added for face-box testing).
+  { id: "dzarma", kind: "interview, close face", truth: "indoors", title: "Interview with Dr. Grace Saleh Dzarma (Nigeria)", lic: "CC BY-SA 4.0 · Danjuma Anthony", url: "https://upload.wikimedia.org/wikipedia/commons/c/cc/Interview_with_Dr._Grace_Saleh_Dzarma.webm" },
+  { id: "baiga", kind: "interview, older man", truth: "outdoors", title: "Interview of Lakhan Lal of the Baiga tribe (India)", lic: "CC BY-SA 4.0 · Suyash Dwivedi", url: "https://upload.wikimedia.org/wikipedia/commons/8/89/Interview_of_a_Baiga_tribe_named_Lakhan_Lal_in_Hindi_Language_by_Suyash_Dwivedi.webm" },
+  { id: "sattriya", kind: "group interview, stage make-up", truth: "indoors", title: "Sattriya dancers interview, Wiki Loves Folklore photowalk (India)", lic: "CC BY-SA 4.0 · Suyash Dwivedi", url: "https://upload.wikimedia.org/wikipedia/commons/b/be/Sattriya_Dancers_Interview_During_Wiki_Loves_Folklore_Photowalk.webm" },
+  { id: "groupdisc", kind: "meeting room, many people", truth: "indoors", title: "Presentations of group discussions (CDC)", lic: "Public domain · CDC", url: "https://upload.wikimedia.org/wikipedia/commons/a/a0/Presentations_of_Group_Discussions.webm" },
+  { id: "rwic", kind: "interview, low resolution", truth: "indoors", title: "RWIC interview 3 (Nigeria)", lic: "CC BY-SA 4.0 · Onyinyeonuoha", url: "https://upload.wikimedia.org/wikipedia/commons/0/0b/Rwicinterview3.webm" },
+  { id: "hijab", kind: "interviews, headscarves", truth: "indoors", title: "Muslim women in Minnesota talk about harassment", lic: "CC BY 3.0 · 100ProofPolitics", url: "https://upload.wikimedia.org/wikipedia/commons/2/28/REAL_Story_behind_Breitbart_%26_Harassment_of_Hijab-Wearing_Muslim_Women_in_MN.webm" },
+  { id: "ginoza", kind: "family visit, children", truth: "indoors", title: "7th Communication Battalion hosts a Ginoza family (Okinawa)", lic: "Public domain · U.S. Air Force, SSgt Magen Reeves", url: "https://upload.wikimedia.org/wikipedia/commons/f/f9/7th_Communication_Battalion_hosts_local_Ginoza_Family_%28991470%29.webm" },
+  { id: "nairobi", kind: "panel and audience", truth: "indoors", title: "Can Teachers Help Teachers with AI, Wikimania 2025 Nairobi", lic: "CC BY-SA 4.0 · Wikimania 2025 East African Organising Team", url: "https://upload.wikimedia.org/wikipedia/commons/3/32/Can_Teachers_Help_Teachers_with_AI_%E2%80%93_Wikimania_2025_in_Nairobi%2C_Kenya.webm" },
 ];
 
 // The true setting of the earlier clips, for scoring scene recognition.
@@ -200,11 +209,11 @@ async function probe(id, n = 6, seekMs = 15000) {
     const ts = (probe.ts = Math.max((probe.ts ?? 0) + 50, performance.now()));
     const T = perception.tasks, row = { t: +v.currentTime.toFixed(1) };
     try {
-      const f = T.face.detectForVideo(v, ts);
-      row.faces = (f.faceLandmarks ?? []).map((lm, i) => {
-        const cats = f.faceBlendshapes?.[i]?.categories ?? [];
+      perception.faceTracks = [];
+      row.faces = perception.readFaces(v, ts).map((f) => {
+        const cats = f.shapes ?? [];
         const g = (n) => cats.find((c) => c.categoryName === n)?.score ?? 0;
-        return { expr: readExpression(cats), looking: lookingAtCamera(lm), size: +((Math.max(...lm.map((p) => p.x)) - Math.min(...lm.map((p) => p.x))) * 100).toFixed(0),
+        return { expr: f.readable && f.shapes ? readExpression(cats) : null, looking: f.lookingAtYou, size: +(f.box.w * 100).toFixed(0),
           raw: { smile: +((g("mouthSmileLeft") + g("mouthSmileRight")) / 2).toFixed(2), frown: +((g("mouthFrownLeft") + g("mouthFrownRight")) / 2).toFixed(2),
             browDown: +((g("browDownLeft") + g("browDownRight")) / 2).toFixed(2), browUp: +g("browInnerUp").toFixed(2), jaw: +g("jawOpen").toFixed(2),
             squint: +((g("eyeSquintLeft") + g("eyeSquintRight")) / 2).toFixed(2), cheek: +((g("cheekSquintLeft") + g("cheekSquintRight")) / 2).toFixed(2) } };
@@ -226,4 +235,59 @@ async function probe(id, n = 6, seekMs = 15000) {
   return { id, truth: clip.truth, kind: clip.kind, rows };
 }
 
-window.groverLab = { run, probe, CLIPS, perception, perceive: false };
+// Face probe: jump to n points in a clip and find faces two ways: with the app's face reader
+// (perception.readFaces: full-range face finder, expressions read from zoomed-in crops) and
+// with the old one (the face landmarker on the whole frame, up to 4 faces, selfie range only).
+// Each frame is saved with boxes drawn on: green = new reader (with its expression),
+// dashed orange = old reader. Count faces by eye against the people really visible.
+let oldFace = null;
+async function faceProbe(id, n = 6, seekMs = 15000) {
+  await perception.load();
+  if (!oldFace) {
+    const mp = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/vision_bundle.mjs");
+    const files = await mp.FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm");
+    oldFace = await mp.FaceLandmarker.createFromOptions(files, { baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task", delegate: "CPU" }, runningMode: "VIDEO", numFaces: 4, outputFaceBlendshapes: true });
+  }
+  const clip = CLIPS.find((c) => c.id === id);
+  const v = document.createElement("video");
+  v.crossOrigin = "anonymous"; v.muted = true; v.preload = "auto"; v.src = clip.url;
+  const within = (ms, p) => Promise.race([p, new Promise((_, j) => setTimeout(() => j(new Error("timed out")), ms))]);
+  await within(30000, new Promise((r, j) => { v.onloadeddata = r; v.onerror = () => j(new Error("load failed")); }));
+  const shot = document.createElement("canvas");
+  const rows = [];
+  for (let k = 1; k <= n; k++) {
+    v.currentTime = (v.duration * k) / (n + 1);
+    try { await within(seekMs, new Promise((r) => (v.onseeked = r))); } catch { rows.push({ k, error: "seek timed out" }); continue; }
+    await within(5000, new Promise((r) => (v.requestVideoFrameCallback ? v.requestVideoFrameCallback(() => r()) : setTimeout(r, 300)))).catch(() => {});
+    if (!v.videoHeight) { rows.push({ k, error: "no frame" }); continue; }
+    const ts = (probe.ts = Math.max((probe.ts ?? 0) + 50, performance.now()));
+    perception.faceTracks = [];
+    const now = perception.readFaces(v, ts).map((f) => ({ ...f, expr: f.readable && f.shapes ? readExpression(f.shapes) : null }));
+    const old = (oldFace.detectForVideo(v, ts).faceLandmarks ?? []).map((lm) => {
+      const xs = lm.map((p) => p.x), ys = lm.map((p) => p.y);
+      return { box: { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) } };
+    });
+    shot.width = 640; shot.height = Math.round((640 * v.videoHeight) / v.videoWidth);
+    const g = shot.getContext("2d");
+    g.drawImage(v, 0, 0, shot.width, shot.height);
+    const W = shot.width, H = shot.height;
+    g.setLineDash([3, 3]); g.strokeStyle = "#ff9f1c"; g.lineWidth = 1;
+    for (const f of old) g.strokeRect(f.box.x * W - 3, f.box.y * H - 3, f.box.w * W + 6, f.box.h * H + 6);
+    g.setLineDash([]); g.strokeStyle = "#4ade80"; g.lineWidth = 1.5; g.font = "500 11px system-ui";
+    now.forEach((f, i) => {
+      g.strokeRect(f.box.x * W, f.box.y * H, f.box.w * W, f.box.h * H);
+      const label = `${i + 1} ${f.readable ? f.expr ?? "?" : "small"}${f.lookingAtYou ? " L" : ""}`;
+      g.fillStyle = "rgba(0,0,0,.6)"; g.fillRect(f.box.x * W, f.box.y * H - 14, g.measureText(label).width + 6, 14);
+      g.fillStyle = "#4ade80"; g.fillText(label, f.box.x * W + 3, f.box.y * H - 3);
+    });
+    const blob = await new Promise((r) => shot.toBlob(r, "image/jpeg", 0.8));
+    await fetch(`/lab-frame?name=faces-${id}-${k}.jpg`, { method: "POST", body: blob });
+    rows.push({ k, t: +v.currentTime.toFixed(1), old: old.length, now: now.length, readable: now.filter((f) => f.readable).length,
+      px: now.map((f) => Math.round(f.box.w * v.videoWidth)), exprs: now.map((f) => (f.readable ? f.expr ?? "?" : "small")),
+      down: now.map((f) => { if (!f.shapes) return null; const g = (n) => f.shapes.find((c) => c.categoryName === n)?.score ?? 0;
+        return `${((g("eyeLookDownLeft") + g("eyeLookDownRight")) / 2).toFixed(2)} p${f.head?.pitch} y${f.head?.yaw}`; }), looking: now.map((f) => f.lookingAtYou) });
+  }
+  return { id, rows };
+}
+
+window.groverLab = { run, probe, faceProbe, CLIPS, perception, perceive: false };

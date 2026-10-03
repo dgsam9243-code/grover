@@ -302,7 +302,7 @@ Grover reads faces, body language, objects and the type of place with Google's o
   - A dim, tilted face read as **"tense"** (brows score 0.49).
   - A woman **talking** with expressive raised brows read as **"worried"** (0.54).
   - Fix: negative expressions now need strong evidence (tense brows > 0.6, worried brows > 0.65 plus a slight frown). **A wrong emotion label is worse than none.**
-- **Small faces** (crowds, low-resolution video) aren't read. The panel says "Faces too far to read" instead of guessing. Faces must be at least 12% of the frame wide.
+- **Small faces** (crowds, low-resolution video) aren't read. The panel says "Faces too far to read" instead of guessing. Faces must be at least 12% of the frame wide. *(Since replaced: faces are now found up to ~5 m away and read from a zoomed-in crop when at least 56 px wide. See "Face boxes" below.)*
 - **Steady display:** an expression is only shown after it holds for 3 of the last 4 readings (about a second), so it doesn't flicker.
 - **Wording:** expressions are described, not feelings ("😊 Smiling", not "happy"). A tense face gets "It may not be about you."
 
@@ -380,3 +380,43 @@ Those synthetic tones are pure, so the purity rule shouldn't change them, but th
 - The flashing-light threshold still needs testing on footage of real strobes or club lighting.
 
 **Tips:** "A siren or alarm is sounding" (priority 3, with "Take a moment"), "There is a sharp, high-pitched sound" and "There are a lot of flashing lights here". They're adjustable as **Flashing lights** and **Sirens, alarms and sharp sounds**, and on by default for every profile; Focus gets only sirens and alarms.
+
+---
+
+# Face boxes: finding everyone at conversation distance
+
+The camera check view draws a box on every face Grover finds, labelled with the expression in words (with the emoji beside it). Testing that view on real footage showed the face reader itself was missing most people.
+
+**Footage:** 18 openly licensed clips of people from many backgrounds: Nigeria, India, Indonesia, Ghana, the Philippines, Afghanistan, Kenya, Okinawa (Japan), the US and Europe. They include dark and light skin, headscarves and headwraps, glasses, beards, stage make-up, teenagers and older people, close interviews and groups. 8 were added for this (credited in `public/js/lab.js`). `lab.html`'s `faceProbe(id)` reads frames with the old and the new reader and saves each one with the boxes drawn on (`tools/frames/faces-*.jpg`), so every result was checked by eye.
+
+### What the footage showed
+
+| Scene | Old reader | New reader |
+|---|---|---|
+| 4 dancers facing the camera, ~2 m (India) | 0 of 4 (1 in one frame) | **4 of 4, every frame** |
+| 5 people posing in a row (Okinawa) | 0 | **5 of 5**, all "smiling · looking at you" (correct) |
+| Train carriage (Philippines) | 0 | 2–4 per frame |
+| Classroom (Ghana) | 0 | the student facing the camera, "smiling" (correct) |
+| School canteen (Indonesia) | 0–1 | 1–2 per frame, including a large face the old one missed |
+| Close interviews (Nigeria, India, US) | found | found (no change) |
+
+- **Why the old reader failed:** the face landmarker finds faces with a *short-range* detector, built for selfie distance. At conversation distance (1–2.5 m) a face is only about 5–12% of a phone camera's picture, and it found almost none of them. Raising its 4-face limit made no difference.
+- **Fix:** MediaPipe's **full-range** face detector finds the faces (no limit on how many). Each face big enough to read is then cut out, zoomed to 256 px and read by the face landmarker on its own. The camera picture is now requested at 1280×720, so faces at conversation distance have enough pixels.
+- **Readable size:** at least **56 px** wide (about 2.5 m away at 1280×720). Faces of 62–69 px in a 640×480 café clip read sensibly.
+- **Crop size:** no one zoom works for every face. If the face reader can't place the face in the first crop (1.8× the face), it tries 1.4×, then 2.4×. This recovered about half the faces the first crop missed. Faces still not read (mostly side-on or looking down) are labelled "Face" with no expression, not a guess.
+- **Brightening dark frames:** tried on every clip, found **no** extra faces. Not used.
+
+### "Looking at you"
+
+- The old check (nose between the eye corners) said a man eating and glancing sideways at his plate was looking at you, and also an interviewee looking at the interviewer beside the camera.
+- **Fix:** the head's turn (yaw) from the face model's 3D pose must be **under 20°** (people facing the camera: 0–14°; the man eating: 26–56°), and the eyes must not be looking down (score under **0.6**; facing the camera up to 0.49, looking at a phone 0.66–0.75).
+- **Catch:** a broad smile narrows the eyes, which the model reads as looking down (0.71 for a dancer smiling straight at the camera). So the eyes-down rule is skipped when someone is smiling.
+
+### Still missed
+
+- Faces in full **side profile**, or **turned well away** and looking down.
+- **Dim light:** at a dark party, a smiling woman about 10% of the frame wide wasn't found by either reader.
+- **Tiny faces** far in the background (under ~40 px): by design, the focus is conversation distance.
+- A face in a **painting or poster** can be found for a moment. The view only draws a face once it has been seen twice in a row (a quarter of a second).
+- The camera check was tested with footage fed in as the camera, not yet on a real phone.
+

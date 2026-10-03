@@ -1,10 +1,10 @@
 // Offline support: keep a copy of the app shell. Network first, so updates
 // show up immediately when online; the cached copy is used when offline.
-const CACHE = "grover-v3";
+const CACHE = "grover-v6";
 const SHELL = [
   "./", "index.html", "privacy.html", "styles.css", "manifest.webmanifest",
   "js/app.js", "js/audio.js", "js/vision.js", "js/speech.js", "js/coach.js",
-  "js/calm.js", "js/demo.js", "js/ai.js", "js/profiles.js", "js/perception.js", "js/scene.js",
+  "js/calm.js", "js/demo.js", "js/ai.js", "js/profiles.js", "js/perception.js", "js/scene.js", "js/overlay.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-180.png",
 ];
 

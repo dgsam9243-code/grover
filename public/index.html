@@ -127,15 +127,6 @@
   <main class="layout">
     <!-- Left: what Grover senses -->
     <section id="sensePanel" class="panel sense" aria-label="What Grover notices">
-      <div class="video-wrap">
-        <video id="video" autoplay playsinline muted></video>
-        <canvas id="frameCanvas" width="160" height="120" hidden></canvas>
-        <div id="videoPlaceholder" class="video-placeholder">
-          <p>Camera is off</p>
-          <small>Press <b>Start listening</b> or try the <b>Demo scenario</b></small>
-        </div>
-      </div>
-
       <div class="meters">
         <div class="meter" id="mSound">
           <span class="label">Sound</span>
@@ -199,6 +190,24 @@
       <div id="peopleCard" class="live-card people-card">
         <span class="lc-head"><span class="lc-title">People near you</span><span class="lc-time" data-time="people"></span></span>
         <span class="lc-chips"><span class="chip muted">Starts when the camera is on</span></span>
+      </div>
+
+      <!-- Camera check: the live picture with boxes on the faces Grover finds -->
+      <div id="cameraCard" class="live-card camera-card">
+        <span class="lc-head"><span class="lc-title">What the camera sees</span>
+          <button id="btnCamView" type="button" class="ghost cam-toggle" aria-expanded="true" aria-controls="camBody">Hide</button></span>
+        <div id="camBody" class="cam-body">
+          <div class="video-wrap">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="camOverlay" class="cam-overlay" aria-hidden="true"></canvas>
+            <canvas id="frameCanvas" width="160" height="120" hidden></canvas>
+            <div id="videoPlaceholder" class="video-placeholder">
+              <p>Camera is off</p>
+              <small>Press <b>Start listening</b> or try the <b>Demo scenario</b></small>
+            </div>
+          </div>
+          <p id="camStatus" class="cam-status" role="status" aria-live="off">Camera is off</p>
+        </div>
       </div>
 
 

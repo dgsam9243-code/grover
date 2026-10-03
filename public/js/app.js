@@ -6,6 +6,7 @@ import { Calm } from "./calm.js";
 import { DEMO_SCRIPT } from "./demo.js";
 import { Perception, EXPRESSIONS, BODY } from "./perception.js";
 import { SceneReader, SCENES } from "./scene.js";
+import { CameraOverlay } from "./overlay.js";
 import { CUE_TYPES, PROFILES, DEFAULT_PROFILE, LOUD_LEVELS, noisyLevel } from "./profiles.js";
 
 const $ = (id) => document.getElementById(id);
@@ -476,7 +477,7 @@ async function startLive() {
     showProblem("This link can't use the microphone.", "Open Grover from a secure (https) link, or from the installed app.");
     return;
   }
-  const video = camera ? { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 } } : false;
+  const video = camera ? { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } } : false;
   let stream;
   const notes = []; // shown with the "I'm listening" message so they aren't lost
   try {
@@ -520,6 +521,7 @@ async function startLive() {
     vision.start();
     sensors.push(vision);
     startPerception(els.video);
+    camOverlay.start(() => (perceptionOn && perception ? perception : { status: "off" }));
   }
 
   if (speechSupported) {
@@ -588,6 +590,7 @@ function beginSession() {
 
 function stopAll() {
   stopPerception();
+  camOverlay.stop();
   const showSummary = running && Date.now() - sessionStart > 20000;
   running = false;
   calibrating = false;
@@ -739,6 +742,22 @@ let detailsOpen = false;
 try { detailsOpen = localStorage.getItem(DETAILS_KEY) === "1"; } catch {}
 setDetails(detailsOpen);
 
+// ---------- camera check: the live picture, with boxes on the faces Grover finds ----------
+// Shown on the main screen so it's easy to see the camera is on and being read. Can be hidden.
+const CAM_KEY = "grover.camView";
+const camOverlay = new CameraOverlay(els.video, $("camOverlay"), $("camStatus"));
+const camBtn = $("btnCamView"), camBody = $("camBody");
+function setCamView(open) {
+  camBody.hidden = !open;
+  camBtn.setAttribute("aria-expanded", String(open));
+  camBtn.textContent = open ? "Hide" : "Show";
+  try { localStorage.setItem(CAM_KEY, open ? "1" : "0"); } catch {}
+}
+camBtn.onclick = () => setCamView(camBody.hidden);
+let camOpen = true;
+try { camOpen = localStorage.getItem(CAM_KEY) !== "0"; } catch {}
+setCamView(camOpen);
+
 // ---------- installable app: offline support ----------
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
@@ -783,7 +802,7 @@ $("btnSoundCheck").onclick = () => {
 // is worked out from those plus sound (scene.js). The cards show when each was last updated,
 // so it is always clear that Grover is working, and how fresh its reading is.
 const live = { scene: null, sceneAt: 0, people: null, peopleAt: 0, exprHistory: [] };
-let perception = null, sceneReader = new SceneReader();
+let perception = null, perceptionOn = false, sceneReader = new SceneReader();
 const sceneCard = $("sceneCard"), sceneGuide = $("sceneGuide"), peopleCard = $("peopleCard"), liveStatus = $("liveStatus");
 
 function ago(t) {
@@ -805,7 +824,8 @@ function onPercept(p) {
     const counts = live.exprHistory.reduce((m, e) => ((m[e] = (m[e] ?? 0) + 1), m), {});
     const steady = Object.entries(counts).find(([e, n]) => e !== "null" && n >= 3)?.[0] ?? null;
     live.people = {
-      count: p.objects?.person ?? live.people?.count ?? (p.bodies?.length || p.faces?.length || 0),
+      // The object finder can miss people sitting close together; every face found is a person too.
+      count: Math.max(p.objects?.person ?? live.people?.count ?? (p.bodies?.length || 0), p.faces?.length ?? 0),
       expression: steady,
       lookingAtYou: Boolean(main?.lookingAtYou),
       tooFar: (p.faces?.length ?? 0) > 0 && !main,
@@ -885,12 +905,14 @@ sceneCard.onclick = () => {
 // Start reading faces, bodies and the setting from the camera, if this profile uses them.
 async function startPerception(video) {
   const s = getSettings();
-  if (!s.camera || !["scene", "faces", "body"].some((c) => s.cues[c])) return;
-  perception ??= new Perception(onPercept);
+  perceptionOn = s.camera && ["scene", "faces", "body"].some((c) => s.cues[c]);
+  if (!perceptionOn) return;
+  perception ??= new Perception((p) => { camOverlay.update(p); onPercept(p); });
   try { await perception.load(); } catch { showProblem("I couldn't load the face and body reader.", "Sound alerts still work. Check the internet connection and try again."); return; }
-  if (running) perception.start(video);
+  if (running) perception.start(video, (faces) => camOverlay.track(faces));
 }
 function stopPerception() {
+  perceptionOn = false;
   perception?.stop();
   sceneReader = new SceneReader();
   Object.assign(live, { scene: null, sceneAt: 0, people: null, peopleAt: 0, exprHistory: [] });
