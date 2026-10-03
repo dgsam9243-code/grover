@@ -1,0 +1,6 @@
+node_modules/
+# Lab outputs: snapshots and recorded readings stay on this computer.
+tools/frames/
+tools/lab-data*.json
+tools/probe*.json
+tools/replay-out.json

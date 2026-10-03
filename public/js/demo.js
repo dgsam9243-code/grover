@@ -1,0 +1,36 @@
+// Scripted scenario so the concept can be shown without a camera or mic.
+// `at` is milliseconds from start. `env` simulates sensor readings. `see` simulates what the
+// camera reads (objects, scene labels, faces, bodies), repeated each second until it changes.
+
+export const DEMO_SCRIPT = [
+  { at: 500, env: { level: 0.35, motion: 0.05, brightness: 0.55, faces: 0, wpm: 0 },
+    see: { objects: { "dining table": 1, cake: 1, cup: 2 }, labels: [{ name: "candle", score: 0.45 }], faces: [], bodies: [] } },
+  { at: 3000, env: { faces: 1, level: 0.45 },
+    see: { objects: { person: 1, "dining table": 1, cake: 1, cup: 2 }, labels: [{ name: "candle", score: 0.4 }], faces: [{ expression: "smiling", lookingAtYou: true, readable: true }], bodies: [["facing"]] } },
+  { at: 4000, say: "Hey Sam, good to see you!", env: { wpm: 120 } },
+  { at: 8000, say: "How are you doing?" },
+  { at: 13000, see: { objects: { person: 2, "dining table": 1, cake: 1 }, labels: [{ name: "candle", score: 0.3 }], faces: [{ expression: "neutral", lookingAtYou: true, readable: true }], bodies: [["waving", "facing"], ["facing"]] } },
+  { at: 15000, env: { wpm: 0 }, see: { objects: { person: 2, "dining table": 1, cake: 1 }, labels: [{ name: "restaurant", score: 0.2 }], faces: [{ expression: "neutral", lookingAtYou: true, readable: true }], bodies: [["facing"], ["sitting"]] } },
+  { at: 22000, env: { faces: 3, level: 0.6, motion: 0.18, wpm: 140 },
+    see: { objects: { person: 3, "dining table": 1, cake: 1, "wine glass": 2 }, labels: [{ name: "candle", score: 0.3 }], faces: [{ expression: "talking", lookingAtYou: true, readable: true }], bodies: [["facing"], ["facing"], ["sitting"]] } },
+  { at: 24000, say: "Ugh, honestly I've had a really bad day, work was so stressful." },
+  { at: 30000, say: "But tonight should be a piece of cake, right?" },
+  { at: 36000, env: { level: 0.85, motion: 0.32, faces: 5, wpm: 190 },
+    see: { objects: { person: 6, cake: 1, "wine glass": 3 }, labels: [{ name: "candle", score: 0.2 }], faces: [{ readable: false }, { readable: false }], bodies: [["facing"], ["turnedAway"], ["facing"]] } },
+  { at: 33000, env: { flashes: 8 } },
+  { at: 34000, env: { flashes: 9 } },
+  { at: 35500, env: { flashes: 7 } },
+  { at: 36500, env: { flashes: 0 } },
+  { at: 37000, env: { spike: true } },
+  { at: 48000, env: { sound: "siren" } },
+  { at: 48500, env: { sound: null } },
+  { at: 37500, env: { spike: false } },
+  { at: 45000, say: "Oh my gosh, she got the job, congratulations!",
+    see: { objects: { person: 5, cake: 1, "wine glass": 3 }, labels: [{ name: "candle", score: 0.25 }], faces: [{ expression: "laughing", lookingAtYou: true, readable: true }], bodies: [["facing"], ["facing"]] } },
+  { at: 52000, env: { level: 0.5, motion: 0.12, faces: 2, wpm: 110 },
+    see: { objects: { person: 2, "dining table": 1, cake: 1 }, labels: [{ name: "candle", score: 0.3 }], faces: [{ expression: "smiling", lookingAtYou: true, readable: true }], bodies: [["facing"]] } },
+  { at: 53000, say: "Thanks so much for coming, it was really nice." },
+  { at: 57000, say: "Okay, I gotta go, see you later!" },
+  { at: 63000, env: { level: 0.3, motion: 0.04, faces: 0, wpm: 0 }, see: { objects: { "dining table": 1 }, faces: [], bodies: [] } },
+  { at: 66000, end: true },
+];

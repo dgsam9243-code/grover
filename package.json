@@ -1,0 +1,9 @@
+{
+  "name": "grover",
+  "version": "0.1.0",
+  "description": "Proof of concept: a live social-awareness and calming companion for neurodivergent people.",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  }
+}

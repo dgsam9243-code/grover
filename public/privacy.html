@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Grover · Privacy</title>
+  <meta name="theme-color" content="#1b1d21" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="doc">
+    <p><a href="./">← Back to Grover</a></p>
+    <h1>Privacy</h1>
+    <p class="lead">Short version: Grover checks sound and video on your device, as it happens. It does not record, save or upload them.</p>
+
+    <h2>What Grover uses</h2>
+    <ul>
+      <li><b>Microphone:</b> to notice how loud it is, sudden sounds, and speech (your name, questions).</li>
+      <li><b>Camera</b> (optional, can be turned off in Settings): to notice movement, how many people are near you, facial expressions (like smiling), body language (like waving) and what kind of place you are in. Movement uses a tiny, low-detail copy of the picture; the face, body and object readers look at the full picture, on your device.</li>
+    </ul>
+
+    <h2>What happens to it</h2>
+    <ul>
+      <li>Sound levels and camera frames are processed <b>on your device</b>, in real time, then thrown away.</li>
+      <li>Nothing is recorded. Nothing is saved. Nothing is sent to us. Grover has no account and no server that receives your data.</li>
+      <li>Your settings (profile, name, choices) are saved only in this browser on this device.</li>
+      <li><b>Face, body and object reading:</b> Grover downloads Google's open MediaPipe models once (from jsdelivr and Google's model storage). After that, faces, body positions and objects are read on your device. Grover does not recognise who anyone is, and does not store faces.</li>
+    </ul>
+
+    <h2>The one exception: live speech-to-text</h2>
+    <p>To understand speech (for captions, your name and questions), Grover uses your browser's built-in speech recognition. Depending on the browser, this may send audio to the browser's company (for example Google for Chrome) to turn it into text. Grover does not control or receive that audio.</p>
+
+    <h2>Your control</h2>
+    <ul>
+      <li>Press <b>Stop</b> at any time. The microphone and camera turn off immediately.</li>
+      <li>Turn the camera off in Settings.</li>
+      <li>Remove permissions in your browser or phone settings. Clearing site data removes your saved settings.</li>
+    </ul>
+
+    <h2>Not a medical device</h2>
+    <p>Grover is a support tool. It is not a medical device, does not diagnose anything, and can make mistakes. It does not replace support from people you trust or from professionals.</p>
+  </main>
+</body>
+</html>

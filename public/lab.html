@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grover lab</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .lab { max-width: 900px; margin-inline: auto; padding-block: 16px 40px; display: flex; flex-direction: column; gap: 12px; }
+    .lab video { width: 100%; max-height: 50vh; background: #000; border-radius: 10px; }
+    .lab pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; font-size: .85rem; white-space: pre-wrap; }
+    .lab .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .lab select { max-width: 100%; padding: 6px 8px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <main class="lab">
+    <h1>Grover lab</h1>
+    <p class="hint">Runs Grover's real sound and camera sensors on a recorded video instead of the phone's mic and camera, to tune them on real-world footage. Speech cues can't be tested this way: the browser's speech recognition only listens to a real microphone.</p>
+    <div class="row">
+      <select id="clip" aria-label="Video clip"></select>
+      <select id="profile" aria-label="Support profile"></select>
+      <button id="btnRun" class="primary">Analyse</button>
+    </div>
+    <video id="labVideo" controls playsinline></video>
+    <canvas id="labCanvas" width="160" height="120" hidden></canvas>
+    <p id="credit" class="hint"></p>
+    <p id="live" class="hint"></p>
+    <h2>Cues Grover showed</h2>
+    <pre id="log"></pre>
+    <h2>Summary</h2>
+    <pre id="result"></pre>
+  </main>
+  <script type="module" src="js/lab.js"></script>
+</body>
+</html>

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Grover</title>
+  <meta name="theme-color" content="#1b1d21" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot" aria-hidden="true"></span>
+      <h1>Grover</h1>
+    </div>
+    <div id="liveStatus" class="live-status" role="status" aria-live="off">
+      <span class="pulse" aria-hidden="true"></span><span class="ls-text">Paused</span>
+    </div>
+    <div class="controls">
+      <button id="btnStart" class="primary">Start listening</button>
+      <button id="btnDiscreet" class="ghost" aria-pressed="false" title="Dim, minimal screen; short cues; vibration on phones">Discreet</button>
+      <button id="btnSettings" class="ghost" aria-expanded="false" aria-controls="settings">Settings</button>
+    </div>
+  </header>
+
+  <section id="settings" class="settings" hidden role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="settings-inner">
+      <div class="settings-head">
+        <h2 id="settingsTitle">Settings</h2>
+        <button id="btnSettingsDone" class="primary">Done</button>
+      </div>
+
+      <fieldset class="group">
+        <legend>Support profile</legend>
+        <select id="optProfile" aria-label="Support profile"></select>
+        <p id="profileDesc" class="hint"></p>
+        <details class="adjust">
+          <summary>Adjust what I tell you about</summary>
+          <div id="cueToggles" class="cue-toggles"></div>
+          <label class="cap-toggle"><input type="checkbox" id="optCaptions" /> Large live captions on the main screen</label>
+          <label>Warn me about loudness
+            <select id="optLoud">
+              <option value="early">Early (more sensitive)</option>
+              <option value="normal">Normal</option>
+              <option value="late">Only when very loud</option>
+            </select>
+          </label>
+          <p class="hint">Changing anything here switches your profile to Custom.</p>
+        </details>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend>How I tell you</legend>
+        <select id="optOutput" aria-label="How should I tell you?">
+          <option value="screen">Screen only</option>
+          <option value="buzz">Screen + vibrate</option>
+          <option value="voice">Screen + voice (earbuds)</option>
+          <option value="both">Screen + vibrate + voice</option>
+        </select>
+        <label>Text size
+          <select id="optTextSize">
+            <option value="normal">Normal</option>
+            <option value="large">Large</option>
+            <option value="xl">Extra large</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="optDiscreet" /> Discreet mode</label>
+        <p class="hint">Discreet mode: dim screen, one short word per cue, quieter voice.
+          Vibration: 2 short = conversation · 1 long = notice · 3 short = care · 1 tiny = calm.
+          Energy dots: green = ready, yellow = a bit much, red = too much.</p>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend>You</legend>
+        <label>My name (so I can tell you when someone says it)
+          <input type="text" id="optName" placeholder="e.g. Sam" autocomplete="off" />
+        </label>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend>Sound check</legend>
+        <p class="hint">Phones hear sound differently. In a quiet room, hold the phone still for 5 seconds so Grover can adjust to this phone.</p>
+        <button id="btnSoundCheck" type="button">Run sound check</button>
+        <p id="soundCheckStatus" class="hint" role="status"></p>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend>Camera</legend>
+        <label class="check"><input type="checkbox" id="optCamera" checked /> Use camera</label>
+        <label>Which camera
+          <select id="optFacing">
+            <option value="environment">Back camera (sees the room)</option>
+            <option value="user">Front camera</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend>Share and try</legend>
+        <details class="adjust share">
+          <summary>Share a setup</summary>
+          <p class="hint">A setup code holds your profile and adjustments (not your name). A teacher, therapist or friend can set Grover up once and share the code.</p>
+          <div class="share-row">
+            <button id="btnCopySetup" type="button">Copy my setup code</button>
+          </div>
+          <div class="share-row">
+            <input type="text" id="setupCode" placeholder="Paste a setup code" autocomplete="off" spellcheck="false" aria-label="Setup code" />
+            <button id="btnUseSetup" type="button">Use this setup</button>
+          </div>
+          <p id="setupStatus" class="hint" role="status"></p>
+        </details>
+        <div class="demo-row">
+          <button id="btnDemo" class="ghost">Play demo scenario</button>
+          <span class="hint">A scripted 1-minute scene. No camera or mic needed.</span>
+        </div>
+      </fieldset>
+
+      <p class="hint"><a href="privacy.html">Privacy note</a> · Grover is a support tool, not a medical device.</p>
+    </div>
+  </section>
+
+  <main class="layout">
+    <!-- Left: what Grover senses -->
+    <section id="sensePanel" class="panel sense" aria-label="What Grover notices">
+      <div class="video-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="frameCanvas" width="160" height="120" hidden></canvas>
+        <div id="videoPlaceholder" class="video-placeholder">
+          <p>Camera is off</p>
+          <small>Press <b>Start listening</b> or try the <b>Demo scenario</b></small>
+        </div>
+      </div>
+
+      <div class="meters">
+        <div class="meter" id="mSound">
+          <span class="label">Sound</span>
+          <div class="bar"><i></i></div>
+          <span class="value">—</span>
+        </div>
+        <div class="meter" id="mPace">
+          <span class="label">Talk pace</span>
+          <div class="bar"><i></i></div>
+          <span class="value">—</span>
+        </div>
+        <div class="meter" id="mActivity">
+          <span class="label">Movement</span>
+          <div class="bar"><i></i></div>
+          <span class="value">—</span>
+        </div>
+        <div class="meter" id="mLight">
+          <span class="label">Light</span>
+          <div class="bar"><i></i></div>
+          <span class="value">—</span>
+        </div>
+      </div>
+
+      <div class="setting-summary" id="settingSummary">Setting: waiting to start…</div>
+
+      <div class="transcript">
+        <h2>What I'm hearing</h2>
+        <div id="transcript" class="transcript-body" aria-live="off"></div>
+        <div id="interim" class="interim"></div>
+      </div>
+    </section>
+
+    <!-- Right: coaching -->
+    <section class="panel coach" aria-label="Coaching">
+      <!-- 1. What is happening now? (most important first) -->
+      <div id="now" class="now idle" aria-live="polite" aria-atomic="true">
+        <div class="now-label">Right now</div>
+        <div class="now-msg">Not listening right now.</div>
+        <div class="now-tip">Press Start when you are ready.</div>
+        <div class="now-say" hidden></div>
+        <div class="now-actions"></div>
+      </div>
+
+      <!-- 2. Where am I? -->
+      <button id="sceneCard" class="live-card scene-card" aria-expanded="false" aria-controls="sceneGuide">
+        <span class="lc-head"><span class="lc-title">Where you are</span><span class="lc-time" data-time="scene"></span></span>
+        <span class="lc-main"><span class="lc-emoji" aria-hidden="true">📍</span><span class="lc-text">Starts when the camera is on</span></span>
+        <span class="lc-why"></span>
+      </button>
+      <div id="sceneGuide" class="scene-guide" hidden>
+        <div class="sg-title">What usually happens here</div>
+        <ol class="sg-steps"></ol>
+        <div class="sg-say" hidden><b>You could say</b><span></span></div>
+        <details class="sg-fix">
+          <summary>Not right? Choose where you are</summary>
+          <div class="sg-choices"></div>
+        </details>
+      </div>
+
+      <!-- 3. Who is here? -->
+      <div id="peopleCard" class="live-card people-card">
+        <span class="lc-head"><span class="lc-title">People near you</span><span class="lc-time" data-time="people"></span></span>
+        <span class="lc-chips"><span class="chip muted">Starts when the camera is on</span></span>
+      </div>
+
+
+      <div id="captions" class="captions" hidden aria-live="off" aria-label="Live captions">
+        <p class="cap-final"></p>
+        <p class="cap-interim"></p>
+      </div>
+
+      <h2 class="earlier-title">Earlier</h2>
+      <div id="feed" class="feed"></div>
+
+      <!-- 4. How am I? A colour scale like those used in many schools, docked within thumb reach. -->
+      <div class="dock">
+      <div class="checkin" role="group" aria-label="How is your energy?">
+        <span class="checkin-q">How is your energy?</span>
+        <div class="mood">
+          <button data-mood="calm" aria-pressed="false" class="zone green"><b>Green</b><small>ready</small></button>
+          <button data-mood="okay" aria-pressed="false" class="zone yellow"><b>Yellow</b><small>a bit much</small></button>
+          <button data-mood="overwhelmed" aria-pressed="false" class="zone red"><b>Red</b><small>too much</small></button>
+        </div>
+      </div>
+
+      <button id="btnBreathe" class="breathe-btn">I need a moment</button>
+      </div>
+      <button id="btnDetails" class="ghost details-btn" aria-expanded="false" aria-controls="sensePanel">Show details</button>
+    </section>
+  </main>
+
+  <!-- First-run welcome: one screen, one choice -->
+  <div id="welcome" class="welcome" hidden role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
+    <div class="welcome-card">
+      <h2 id="welcomeTitle">Hi, I'm Grover.</h2>
+      <p>I notice <b>where you are</b>, <b>how people near you look</b>, and <b>what is happening</b>, and tell you about the few things that matter. The rest of the time I stay quiet.</p>
+      <h3>What would help most?</h3>
+      <div id="welcomeChoices" class="welcome-choices"></div>
+      <p class="hint">You can change this any time in Settings.</p>
+      <p class="hint">Privacy: sound and camera are checked on this device and nothing is recorded. Live captions may use your browser's speech service. <a href="privacy.html">Privacy note</a></p>
+    </div>
+  </div>
+
+  <!-- Consent before the mic/camera turn on for the first time -->
+  <div id="consent" class="welcome" hidden role="dialog" aria-modal="true" aria-labelledby="consentTitle">
+    <div class="welcome-card">
+      <h2 id="consentTitle">Before I start listening</h2>
+      <ul class="consent-list">
+        <li>I use your <b>microphone</b> to notice sound and speech, and your <b>camera</b> (if it is on) to notice movement and people.</li>
+        <li>I read faces and body language to describe <b>expressions</b> (like smiling), not feelings. Faces are never stored or identified.</li>
+        <li>This is checked <b>on this device</b>. Nothing is recorded, saved or uploaded.</li>
+        <li>Live captions use your browser's speech service, which may send audio to the browser's company to turn it into text.</li>
+        <li>Grover is a support tool. It is <b>not a medical device</b> and can make mistakes.</li>
+      </ul>
+      <div class="consent-actions">
+        <button id="btnConsentYes" class="primary">Allow and start</button>
+        <button id="btnConsentNo" class="ghost">Not now</button>
+      </div>
+      <p class="hint"><a href="privacy.html">Read the full privacy note</a></p>
+    </div>
+  </div>
+
+  <!-- Calming overlay -->
+  <!-- Calm space: name the overload, separate the place from the person, then three choices. -->
+  <div id="calm" class="calm-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="calmName">
+    <div class="calm-card">
+      <p id="calmName" class="calm-name">Your brain is taking in a lot right now: sounds, lights and people. It has run out of space.</p>
+      <p class="calm-sub">You are not doing anything wrong. This place is just a lot for your body right now.</p>
+      <div class="calm-tabs" role="tablist" aria-label="What would help?">
+        <button role="tab" aria-selected="true" data-tab="breathe">🌬️ Breathe</button>
+        <button role="tab" aria-selected="false" data-tab="ground">🦶 Ground</button>
+        <button role="tab" aria-selected="false" data-tab="exit">🚪 Step away</button>
+      </div>
+      <section class="calm-panel" data-panel="breathe" role="tabpanel">
+        <div class="circle" id="calmCircle"></div>
+        <p id="calmText" class="calm-text">Breathe in…</p>
+      </section>
+      <section class="calm-panel" data-panel="ground" role="tabpanel" hidden>
+        <ol class="calm-steps">
+          <li>Feel your feet on the floor.</li>
+          <li>Press your hands together, or hold something in your hand.</li>
+          <li>Name 3 things you can see.</li>
+        </ol>
+      </section>
+      <section class="calm-panel" data-panel="exit" role="tabpanel" hidden>
+        <p class="calm-permission">You have full permission to leave. You can step outside, go somewhere quiet, or go home.</p>
+        <p class="calm-sub">You don't owe anyone eye contact or small talk right now.</p>
+        <div class="calm-say"><b>You could say</b>
+          <span>“I need a quick break. I'll be right back.”</span>
+          <span>“I'm going to head home now. Thanks for having me.”</span>
+        </div>
+      </section>
+      <button id="btnCalmDone" class="ghost">I'm ready</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
