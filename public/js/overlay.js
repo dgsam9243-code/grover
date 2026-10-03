@@ -143,12 +143,16 @@ export class CameraOverlay {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cw, ch);
     const now = performance.now();
+    // Nothing to draw while the camera page is out of view (saves battery).
+    if (this.visible === false) return;
     this.tracks = this.tracks.filter((t) => now - t.seen < LOST_MS);
     if (!v.videoWidth) return;
 
-    // The video is shown with object-fit: cover (cropped to fill), and mirrored for the front camera.
+    // Mirrored for the front camera.
     const vw = v.videoWidth, vh = v.videoHeight;
-    const scale = Math.max(cw / vw, ch / vh);
+    // Matches how the video is shown: "contain" (whole picture) or "cover" (cropped to fill).
+    const fit = getComputedStyle(v).objectFit === "contain" ? Math.min : Math.max;
+    const scale = fit(cw / vw, ch / vh);
     const ox = (cw - vw * scale) / 2, oy = (ch - vh * scale) / 2;
     const mirror = v.classList.contains("mirror");
     const toScreen = (b) => {

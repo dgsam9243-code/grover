@@ -345,3 +345,28 @@ Dropped, because they don't fit the simple direction: conversation flow helper, 
 ### Sensor tuning on real footage (2026-10-03)
 - Tuned the audio and video detectors on 11 openly licensed Wikimedia Commons clips of people walking, crowds, markets and traffic. Details in **SENSOR-TUNING.md**.
 - **Reverses round 12's room calibration.** Raising "loud" to the room's level hid genuinely loud places from Social, Focus and Listening. "Loud" is now absolute, reported once per loud stretch.
+
+### #26 Pages, conversation card, and phone-down design (2026-10-03)
+- **Why:** user research and the team's own review: scripting what someone says can take their voice away, and a phone that has to be watched pulls attention out of the conversation.
+- **Suggested words are now opt-in** (Settings → "Suggest words I could say", off by default). Every "You could say…" (Right now, Earlier, voice, setting guide, Step away) follows it. Grover describes what is happening; the person chooses their own words.
+- **Pages instead of one long screen**, by swiping or a bottom tab bar (icon and a word on every tab):
+  - **Home:** a big Start/Stop, a one-line room status, a ✓/! check for microphone, camera and face reader, and "You can put the phone down and talk. I'll buzz when something needs you."
+  - **Me (My conversation style):** a card to show the other person, with name, an optional "about me", "please know" and "what helps me". A full-screen "Show" mode in big letters.
+  - **Setting:** place, people and body language, expressions as percentages over the last 10 seconds (described as expressions, not feelings), and the room meters.
+  - **Camera:** the whole picture with face boxes, labelled as a check ("You don't need to watch it while you talk"). Drawing stops when the page is out of view.
+  - **Help:** Right now, a **conversation summary** with **ideas to keep it going**, "Show a message" (communication cards and type-to-show), captions, what was heard, and earlier tips.
+  - **Calm:** the energy check-in, plus Breathe, **Press**, Ground (5-4-3-2-1) and Step away, "Show the other person what is happening", and a short list of sensory tools.
+- **First-open setup:** 5 short, optional steps: name, about me (common conditions or your own), how I talk and listen (pick several or add your own), support profile, then a preview of the card.
+- **Conversation differences** (21), each pairing "please know" with "what helps". Choosing a condition adds its tips, unless a chosen difference already says the same thing.
+- **Phone down by design:** the newest cue shows as one line above the tabs for 12 s, then the screen goes still. The top status is one word.
+- **Conversation data is never kept:** the summary is built on the phone from captions (keywords, questions, moments, no AI service), lives in memory only, and is wiped on Start and when the app closes. Only the conversation card is stored, and it has a two-tap delete.
+- **Sources** for the conversation differences, tips and coping strategies:
+  - National Autistic Society, [accessible services](https://www.autism.org.uk/what-we-do/autism-know-how/autism-accreditation/autism-friendly-award/guides-and-resources/accessible-service); [SF.gov tips](https://www.sf.gov/information--tips-communicating-people-autism-spectrum); Reframing Autism, [communicating respectfully](https://reframingautism.org.au/how-to-communicate-effectively-and-respectfully-with-autistic-individuals/) and [communication differences](https://reframingautism.org.au/autistic-communication-differences-a-primer/)
+  - STAMMA, [in conversation with someone who stammers](https://stamma.org/about-stammering/conversation-someone-stammers)
+  - Selective mutism in adults ([Prosper Health](https://www.prosperhealth.io/blog/selective-mutism-in-adults)): alternatives to speech, no pressure to talk
+  - Auditory processing ([NHS Scotland](https://www.acquiredbraininjury-education.scot.nhs.uk/impact-of-abi/communication-problems/auditory-processing-disorder/how-to-help-the-person-with-auditory-processing-disorder/)): face the person, short chunks, rephrase, less noise
+  - Workplace accommodations for autism and AuDHD ([AbsenceSoft](https://absencesoft.com/resources/what-do-accommodations-for-autism-and-audhd-look-like-a-practical-guide-for-hr/)): processing time, written follow-ups
+  - Sensory overload coping ([ADHD & Autism Clinic](https://adhdandautismclinic.co.uk/understanding-and-managing-sensory-overload/), [Prosper Health](https://www.prosperhealth.io/blog/how-to-deal-with-sensory-overload-in-autistic-adults)): paced breathing with a long breath out, pressure (proprioceptive input), 5-4-3-2-1 grounding, headphones, stimming, a quiet space
+- **Checked in the browser** (phone size): setup end to end, card with no repeated lines, every page in the demo, the summary after Stop, big-letters view, the camera page on real footage, and discreet mode with extra-large text (no sideways scrolling).
+- **Bugs found and fixed while testing:** Enter on the name step selected the first condition; repeated lines on the card; a too-wide top bar shifted every page; clumsy idea wording.
+- **Needs real people:** whether the card's wording feels right to the people it describes, and whether the pages really let people keep their eyes on the conversation.

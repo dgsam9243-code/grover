@@ -25,11 +25,14 @@ That effort builds up into stress and exhaustion, and often makes people avoid s
 |---|---|
 | **Notices the moments that matter** | Your name, a question to you, a pause after a question, a sudden loud sound, a long loud period, lots of movement, someone arriving, people talking fast, a figure of speech |
 | **Describes the room at a glance** | "Busy · 3 people nearby · Nothing needs you right now." |
-| **Gives one short, exact phrase when useful** | "You could say: *Sorry, can you say that again?*" |
+| **Your conversation card** | Set up on first open (all optional): your name, anything you want to share about yourself, and how you talk and listen, picked from 21 common differences or in your own words. Each one tells the other person what helps ("If I take a while to answer, I'm still listening… Please give me time"). Show it full screen in big letters |
+| **Show a message** | When talking is hard, show a card in big letters ("Can you write it down, please?") or type your own |
+| **Conversation summary** | Topics, questions asked and key moments, with ideas to keep the conversation going. Made on the phone from captions and wiped when the app closes |
+| **Suggested words, only if you want them** | Off by default: Grover describes what is happening and you choose your own words. Turn on "Suggest words I could say" for phrases like "*Sorry, can you say that again?*" |
 | **Sees expressions and body language** | "😊 Smiling · 👀 Looking at you · 👋 Waving": it describes what faces and bodies are doing, never claims to know feelings, and says "faces too far to read" rather than guess |
 | **Understands the setting** | Party, restaurant or café, shop, street or bus stop, train or bus, car, police or emergency lights, concert, quiet place, home, outdoors, crowd. Each has a short "what usually happens here" guide and words to use. It only announces a setting when fairly sure (right 14 of 14 times on test footage) |
 | **Notices overload triggers** | Sirens and alarms (including low-pitch fire alarms), sharp high-pitched sounds, and lots of flashing lights. Each comes with permission to cover your ears, look away or step out. Tested on real recordings: sirens and alarms found, music and traffic ignored |
-| **Helps you calm down** | "I need a moment" opens a Calm space: it names the overload ("your brain has run out of space"), says it is not your fault, then offers 🌬️ Breathe, 🦶 Ground, or 🚪 Step away (full permission to leave, with words to say). Energy check-in on a green / yellow / red scale |
+| **Helps you calm down** | "I need a moment" opens a Calm space: it names the overload ("your brain has run out of space"), says it is not your fault, then offers 🌬️ Breathe (long breath out), ✊ Press (pressure settles the body), 🦶 Ground (5-4-3-2-1) or 🚪 Step away (full permission to leave). "Show the other person what is happening" explains for you in big letters. Energy check-in on a green / yellow / red scale |
 | **Stays discreet** | Vibration patterns, earbud voice that waits for a pause, a dim one-word screen mode with no app name and a neutral "Pause" button |
 | **Sound check** | In Settings: 5 seconds in a quiet room adjusts Grover to this phone's microphone (phones differ by up to ±6 dB) |
 | **Tuned on real footage** | Loud places are reported once per loud stretch, not nagged about. Walking with the phone isn't mistaken for "lots of movement". Sudden-sound alerts only fire for sounds that really get loud. See [SENSOR-TUNING.md](SENSOR-TUNING.md) |
@@ -64,6 +67,8 @@ Grover follows established practice in neurodivergence support. The full rubric 
 - **Affirming, not corrective.** Tips are options. It never asks for eye contact or "acting normal". Breaks are always okay.
 - **Discreet.** Other people shouldn't be able to tell.
 - **Quiet by default.** A good helper speaks rarely, so that when it does, it matters.
+- **Eyes on the conversation, not the phone.** Cues arrive as a buzz, an earbud voice or one short line that fades. The pages are for a quick look, not for watching.
+- **Your words, not a script.** Grover tells you what is happening. Suggested phrases are off unless you turn them on.
 
 ## Who it's for
 

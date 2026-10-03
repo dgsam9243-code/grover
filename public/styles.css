@@ -44,7 +44,6 @@ body {
   font: 1rem/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--ink);
-  padding-inline: 16px;
 }
 button, select, input { font: inherit; color: inherit; }
 button {
@@ -83,16 +82,6 @@ body.live .dot { background: var(--accent); animation: pulse 3s ease-in-out infi
   padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg);
 }
 
-.layout {
-  display: grid; gap: 16px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  padding-bottom: 24px;
-}
-@media (max-width: 860px) {
-  .layout { grid-template-columns: 1fr; }
-  .coach { order: -1; }           /* coaching first on phones */
-  .video-wrap { max-height: 32vh; aspect-ratio: auto; height: 32vh; }
-}
 
 .panel {
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
@@ -200,13 +189,6 @@ body.discreet {
   --warn: #8f7550; --warn-soft: #201c16; --care: #87667f; --care-soft: #1f1a1e;
   color-scheme: dark;
 }
-body.discreet .sense,
-body.discreet .earlier-title,
-body.discreet .feed,
-body.discreet .brand .tag,
-body.discreet #btnDemo,
-body.discreet .checkin > span { display: none; }
-body.discreet .layout { grid-template-columns: minmax(0, 1fr); max-width: 560px; margin-inline: auto; }
 body.discreet .now { min-height: 0; padding: 14px 16px; }
 body.discreet .now-label { display: none; }
 body.discreet .now-msg { font-size: 1.6rem; }
@@ -226,19 +208,8 @@ body.discreet .breathe-btn { padding: 10px; font-size: .95rem; }
 .cue-toggles label { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); }
 .settings select, .settings input[type=text] { max-width: 100%; }
 
-/* One-screen layout: details hidden by default. */
-body:not(.show-details) .sense,
-body:not(.show-details) .earlier-title,
-body:not(.show-details) .feed { display: none; }
-body:not(.show-details) .layout { grid-template-columns: minmax(0, 1fr); max-width: 560px; margin-inline: auto; }
-.details-btn { align-self: center; font-size: .9rem; color: var(--muted); }
-body.discreet .details-btn { display: none; }
 .demo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .demo-row .hint { flex-basis: auto; }
-/* Phones: keep "I need a moment" within thumb reach. */
-@media (max-width: 860px) {
-  .breathe-btn { position: sticky; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 2; }
-}
 
 /* Large live captions (Listening support) */
 .captions { border-radius: 14px; padding: 14px 16px; background: var(--bg); border: 1px solid var(--line); }
@@ -356,14 +327,7 @@ button.live-card { cursor: pointer; }
   .zone.green.active { background: #23382b; } .zone.yellow.active { background: #3a3220; } .zone.red.active { background: #3d2426; }
 }
 body.discreet .zone b, body.discreet .zone small { font-size: 0; }
-body.discreet .live-card, body.discreet .scene-guide, body.discreet .checkin-q { display: none; }
 
-/* Bottom dock: energy check-in + "I need a moment", always within thumb reach. */
-.dock { position: sticky; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 2;
-  display: flex; flex-direction: column; gap: 8px; padding: 10px; margin: 0 -6px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 -4px 16px rgba(0,0,0,.06); }
-.dock .breathe-btn { position: static; }
-body.discreet .dock { box-shadow: none; }
 .live-card { padding: 10px 14px; }
 
 .sg-fix { margin-top: 8px; }
@@ -398,11 +362,184 @@ body.discreet .mood button[data-mood="overwhelmed"]::before { background: #b0565
 
 /* Camera check: live picture with boxes on faces and people, so it's clear the camera is being read. */
 .camera-card { --cam-face: #4ade80; --cam-person: #60a5fa; }
-.camera-card .lc-head { align-items: center; }
-.cam-toggle { font-size: .8rem; padding: 2px 10px; color: var(--muted); }
-.cam-body { display: flex; flex-direction: column; gap: 6px; }
-.cam-body[hidden] { display: none; }
 .cam-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .cam-status { margin: 0; font-size: .8rem; color: var(--muted); white-space: pre-line; font-variant-numeric: tabular-nums; }
 .cam-status.ok { color: var(--accent); }
 .cam-status.bad { color: var(--warn); }
+
+/* ================= Pages: one screen each, swipe or tap the tab bar ================= */
+/* The whole app fits the screen: top bar, the current page (scrolls on its own), cue bar, tabs. */
+body { height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; overflow: hidden; }
+.topbar { padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px; }
+.pager {
+  display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
+  scrollbar-width: none; overscroll-behavior-x: contain; min-height: 0;
+}
+.pager::-webkit-scrollbar { display: none; }
+.page { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; overflow-y: auto; min-height: 0; }
+.page-inner { max-width: 560px; margin-inline: auto; padding: 4px 16px 24px; display: flex; flex-direction: column; gap: 14px; }
+.page-title { font-size: 1.25rem; margin: 4px 0 0; }
+.page-inner > .hint { margin: -8px 0 0; font-size: .9rem; color: var(--muted); }
+.hint { color: var(--muted); font-size: .9rem; margin: 0; }
+
+/* Tab bar: big targets, an icon AND a word on every tab. */
+.tabbar {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px;
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+  background: var(--panel); border-top: 1px solid var(--line);
+}
+.tabbar button {
+  border: 0; border-radius: 12px; background: transparent; padding: 6px 2px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: .75rem; color: var(--muted); min-height: 52px;
+}
+.tabbar button span { font-size: 1.3rem; line-height: 1; }
+.tabbar button[aria-selected="true"] { background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+
+/* Cue bar: the newest cue in one line, just above the tabs. */
+.cue-bar {
+  margin: 0 12px 8px; border-radius: 12px; padding: 10px 14px; text-align: left; font-size: 1rem;
+  border: 1px solid var(--accent); background: var(--accent-soft);
+}
+.cue-bar.info { border-color: var(--info); background: var(--info-soft); }
+.cue-bar.heads-up { border-color: var(--warn); background: var(--warn-soft); }
+.cue-bar.care { border-color: var(--care); background: var(--care-soft); }
+
+/* Home: start/stop and "is it working?", nothing to watch. */
+.home { gap: 16px; padding-top: 12px; }
+.start-btn { font-size: 1.3rem; padding: 22px; border-radius: 18px; font-weight: 600; }
+.start-btn.stop { background: var(--panel); color: var(--ink); border: 2px solid var(--accent); }
+.home-now { font-size: 1.15rem; margin: 0; text-align: center; }
+.home-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.home-checks li {
+  display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line);
+}
+.hc-icon { font-size: 1.2rem; text-align: center; }
+.hc-state { color: var(--muted); font-size: .92rem; text-align: right; }
+.home-checks li.ok .hc-state { color: var(--accent); font-weight: 600; }
+.home-checks li.ok .hc-state::before { content: "✓ "; }
+.home-checks li.bad .hc-state { color: var(--warn); font-weight: 600; }
+.home-checks li.bad .hc-state::before { content: "! "; }
+.phone-down { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); text-align: center; }
+.home-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.home-actions button { padding: 14px 10px; border-radius: 14px; }
+.swipe-hint { text-align: center; font-size: .82rem; }
+.breathe-btn { width: 100%; }
+
+/* My conversation style: the card to show. */
+.me-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+.me-card p, .me-card ul { margin: 0; }
+.me-hello { font-size: 1.4rem; font-weight: 600; }
+.me-about { margin-top: 4px !important; color: var(--muted); }
+.me-h { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 6px; }
+.me-list { padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+.me-thanks { margin-top: 14px !important; color: var(--muted); }
+.me-empty { color: var(--muted); }
+.me-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.me-actions button { padding: 12px 16px; }
+.me-edit { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.field legend { padding: 0; margin-bottom: 6px; font-weight: 600; }
+label.field { font-weight: 600; }
+.field input, .field textarea, .pick-add input, .type-show input {
+  font: inherit; font-weight: 400; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); width: 100%;
+}
+.me-edit label.check { display: flex; gap: 8px; align-items: center; }
+
+/* Pick several: toggle chips, plus "add my own". */
+.picker { display: flex; flex-direction: column; gap: 10px; }
+.pick-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.pick { border-radius: 12px; padding: 10px 12px; text-align: left; font-size: .95rem; }
+.pick[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.pick[aria-pressed="true"]::before { content: "✓ "; color: var(--accent); font-weight: 700; }
+.pick-add { display: flex; gap: 8px; }
+.pick-add input { flex: 1; min-width: 0; }
+
+/* First-run setup steps */
+.wz-progress { margin: 0; color: var(--muted); font-size: .85rem; }
+.wz-step { display: flex; flex-direction: column; gap: 12px; }
+.wz-step h2 { margin: 0; }
+.wz-nav { display: flex; gap: 8px; justify-content: flex-end; position: sticky; bottom: 0; background: var(--bg); padding-block: 10px; }
+.wz-nav #wzBack { margin-right: auto; }
+.wz-nav button { padding: 12px 20px; }
+.welcome-choice[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+
+/* Social setting: expressions as simple bars with words and numbers. */
+.expr-bars { display: flex; flex-direction: column; gap: 8px; }
+.expr-row { display: grid; grid-template-columns: 9.5em 1fr 3em; align-items: center; gap: 8px; }
+.er-pct { text-align: right; font-variant-numeric: tabular-nums; }
+.er-look { margin: 2px 0 0; }
+
+/* Camera page: the whole picture is shown (not cropped), so every box is in view. */
+.camera-card { display: flex; flex-direction: column; gap: 8px; }
+.camera-card .video-wrap { aspect-ratio: auto; height: min(62dvh, 560px); background: #000; }
+.camera-card video { object-fit: contain; }
+.camera-card .video-placeholder { color: #c9c9c9; }
+
+/* Conversation help */
+.conv-summary .cs-body { display: flex; flex-direction: column; gap: 4px; }
+.cs-row { margin: 0; }
+.cs-row b { font-weight: 600; }
+.cs-ideas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+.cs-ideas-title { margin-top: 6px; }
+.qc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.qc-grid button { border-radius: 12px; padding: 12px 10px; text-align: left; }
+.type-show { display: flex; gap: 8px; }
+.type-show input { flex: 1; min-width: 0; }
+.quick-cards:focus { outline: 3px solid var(--accent); outline-offset: 2px; }
+.transcript { gap: 4px; }
+.feed { max-height: none; min-height: 0; }
+
+/* Calm page */
+.calm-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.calm-choices button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+  border-radius: 14px; padding: 12px 14px;
+}
+.calm-choices button span { font-size: 1.5rem; }
+.calm-choices small { color: var(--muted); font-size: .82rem; }
+.show-stress { border-radius: 14px; padding: 14px; background: var(--care-soft); border-color: var(--care); }
+.tools-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.tools-list span { display: inline-block; width: 1.6em; }
+
+/* Show the other person: big, calm, readable at arm's length. */
+.show-overlay {
+  position: fixed; inset: 0; z-index: 30; background: var(--panel); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 20px;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) 22px calc(24px + env(safe-area-inset-bottom, 0px));
+}
+.show-body { flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 640px; width: 100%; margin-inline: auto; }
+.show-text { font-size: clamp(1.8rem, 7vw, 3rem); line-height: 1.3; margin: 0; }
+.show-body .me-hello { font-size: 2rem; }
+.show-body .me-list { font-size: 1.3rem; gap: 10px; }
+.show-body .me-h { font-size: .95rem; }
+#btnShowDone { align-self: center; padding: 14px 40px; font-size: 1.1rem; }
+
+/* Wider screens: a little more room, same single column. */
+@media (min-width: 900px) {
+  .page-inner { max-width: 640px; }
+}
+
+/* Top bar: one line on a phone. */
+.topbar { flex-wrap: nowrap; gap: 8px; }
+.topbar .brand { margin-right: auto; }
+.topbar .controls { flex-wrap: nowrap; gap: 6px; }
+.topbar .controls button { padding: 6px 12px; font-size: .9rem; }
+/* Never wider than the screen: the grid column and the top bar may shrink, the status text trims. */
+body { grid-template-columns: minmax(0, 1fr); }
+.topbar { min-width: 0; padding-inline: 12px; }
+.topbar .brand h1 { font-size: 1.25rem; }
+.live-status { min-width: 0; white-space: nowrap; overflow: hidden; }
+.ls-text { overflow: hidden; text-overflow: ellipsis; }
+.topbar .controls button { padding: 6px 10px; font-size: .85rem; }
+.danger { color: var(--care); border-color: var(--care); margin-left: auto; }
+/* Text stays in the readable ink colour (WCAG AA); the warning and care colours mark borders only. */
+.home-checks li.bad { border-color: var(--warn); background: var(--warn-soft); }
+.home-checks li.bad .hc-state { color: var(--ink); }
+.home-checks li.ok { border-color: var(--accent); }
+.danger { color: var(--ink); }
+.cam-status.bad { color: var(--ink); }
+.cam-status.bad::first-line { font-weight: 600; }
+.now-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.now-actions button { text-align: left; }
+.now-actions button { border-radius: 12px; padding: 10px 14px; }

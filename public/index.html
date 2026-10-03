@@ -22,7 +22,6 @@
       <span class="pulse" aria-hidden="true"></span><span class="ls-text">Paused</span>
     </div>
     <div class="controls">
-      <button id="btnStart" class="primary">Start listening</button>
       <button id="btnDiscreet" class="ghost" aria-pressed="false" title="Dim, minimal screen; short cues; vibration on phones">Discreet</button>
       <button id="btnSettings" class="ghost" aria-expanded="false" aria-controls="settings">Settings</button>
     </div>
@@ -42,7 +41,7 @@
         <details class="adjust">
           <summary>Adjust what I tell you about</summary>
           <div id="cueToggles" class="cue-toggles"></div>
-          <label class="cap-toggle"><input type="checkbox" id="optCaptions" /> Large live captions on the main screen</label>
+          <label class="cap-toggle"><input type="checkbox" id="optCaptions" /> Large live captions in Conversation help</label>
           <label>Warn me about loudness
             <select id="optLoud">
               <option value="early">Early (more sensitive)</option>
@@ -69,6 +68,8 @@
             <option value="xl">Extra large</option>
           </select>
         </label>
+        <label class="check"><input type="checkbox" id="optSuggest" /> Suggest words I could say</label>
+        <p class="hint">Off unless you turn it on. Grover tells you what is happening, and you choose your own words.</p>
         <label class="check"><input type="checkbox" id="optDiscreet" /> Discreet mode</label>
         <p class="hint">Discreet mode: dim screen, one short word per cue, quieter voice.
           Vibration: 2 short = conversation · 1 long = notice · 3 short = care · 1 tiny = calm.
@@ -80,6 +81,7 @@
         <label>My name (so I can tell you when someone says it)
           <input type="text" id="optName" placeholder="e.g. Sam" autocomplete="off" />
         </label>
+        <button type="button" id="btnSetupAgain">Set up my conversation card again</button>
       </fieldset>
 
       <fieldset class="group">
@@ -124,127 +126,259 @@
     </div>
   </section>
 
-  <main class="layout">
-    <!-- Left: what Grover senses -->
-    <section id="sensePanel" class="panel sense" aria-label="What Grover notices">
-      <div class="meters">
-        <div class="meter" id="mSound">
-          <span class="label">Sound</span>
-          <div class="bar"><i></i></div>
-          <span class="value">—</span>
-        </div>
-        <div class="meter" id="mPace">
-          <span class="label">Talk pace</span>
-          <div class="bar"><i></i></div>
-          <span class="value">—</span>
-        </div>
-        <div class="meter" id="mActivity">
-          <span class="label">Movement</span>
-          <div class="bar"><i></i></div>
-          <span class="value">—</span>
-        </div>
-        <div class="meter" id="mLight">
-          <span class="label">Light</span>
-          <div class="bar"><i></i></div>
-          <span class="value">—</span>
-        </div>
-      </div>
+  <!-- Pages: swipe sideways, or use the tab bar at the bottom. Grover is built to be glanced at,
+       not watched: the phone can stay down, and cues arrive as a buzz or a short line. -->
+  <main id="pager" class="pager">
 
-      <div class="setting-summary" id="settingSummary">Setting: waiting to start…</div>
-
-      <div class="transcript">
-        <h2>What I'm hearing</h2>
-        <div id="transcript" class="transcript-body" aria-live="off"></div>
-        <div id="interim" class="interim"></div>
+    <!-- Home: start and stop, and is everything working? -->
+    <section class="page" id="page-home" data-page="home" role="tabpanel" aria-labelledby="tab-home">
+      <div class="page-inner home">
+        <button id="btnStart" class="primary start-btn">Start listening</button>
+        <p id="homeNow" class="home-now">Not listening right now.</p>
+        <ul id="homeChecks" class="home-checks" aria-label="What is working">
+          <li data-check="mic"><span class="hc-icon" aria-hidden="true">🎤</span><span class="hc-name">Microphone</span><span class="hc-state">Off</span></li>
+          <li data-check="camera"><span class="hc-icon" aria-hidden="true">📷</span><span class="hc-name">Camera</span><span class="hc-state">Off</span></li>
+          <li data-check="faces"><span class="hc-icon" aria-hidden="true">🙂</span><span class="hc-name">Face reader</span><span class="hc-state">Off</span></li>
+        </ul>
+        <p class="phone-down">You can put the phone down and talk. I'll buzz when something needs you.</p>
+        <div class="home-actions">
+          <button type="button" data-show="me"><span aria-hidden="true">🙋</span> Show my card</button>
+          <button type="button" data-go="assist" data-focus="quickCards"><span aria-hidden="true">🪧</span> Show a message</button>
+        </div>
+        <button type="button" class="breathe-btn need-moment">I need a moment</button>
+        <p class="hint swipe-hint">Swipe left or right, or use the buttons at the bottom, to see more.</p>
       </div>
     </section>
 
-    <!-- Right: coaching -->
-    <section class="panel coach" aria-label="Coaching">
-      <!-- 1. What is happening now? (most important first) -->
-      <div id="now" class="now idle" aria-live="polite" aria-atomic="true">
-        <div class="now-label">Right now</div>
-        <div class="now-msg">Not listening right now.</div>
-        <div class="now-tip">Press Start when you are ready.</div>
-        <div class="now-say" hidden></div>
-        <div class="now-actions"></div>
+    <!-- My conversation style: a card to show the person you are talking to. -->
+    <section class="page" id="page-me" data-page="me" role="tabpanel" aria-labelledby="tab-me">
+      <div class="page-inner">
+        <h2 class="page-title">My conversation style</h2>
+        <p class="hint">Show this to the person you are talking to, so they know how to help.</p>
+        <div id="meCard" class="me-card"></div>
+        <div class="me-actions">
+          <button type="button" data-show="me" class="primary">Show to the person I'm talking to</button>
+          <button type="button" id="btnEditMe">Edit</button>
+        </div>
+        <form id="meEdit" class="me-edit" hidden>
+          <label class="field">My name <input type="text" id="meName" autocomplete="off" placeholder="e.g. Sam" /></label>
+          <fieldset class="field"><legend>About me (only if you want to share)</legend><div id="meDis" class="picker"></div></fieldset>
+          <fieldset class="field"><legend>How I talk and listen</legend><div id="meQuirks" class="picker"></div></fieldset>
+          <label class="check"><input type="checkbox" id="meTips" /> Add tips for the other person that fit what I chose</label>
+          <label class="field">When I'm overwhelmed, show this <textarea id="meStress" rows="3"></textarea></label>
+          <p class="hint">Saved on this phone only.</p>
+          <div class="me-actions">
+            <button type="submit" class="primary">Save</button>
+            <button type="button" id="btnMeCancel">Cancel</button>
+            <button type="button" id="btnMeDelete" class="ghost danger">Delete my card</button>
+          </div>
+        </form>
       </div>
+    </section>
 
-      <!-- 2. Where am I? -->
-      <button id="sceneCard" class="live-card scene-card" aria-expanded="false" aria-controls="sceneGuide">
-        <span class="lc-head"><span class="lc-title">Where you are</span><span class="lc-time" data-time="scene"></span></span>
-        <span class="lc-main"><span class="lc-emoji" aria-hidden="true">📍</span><span class="lc-text">Starts when the camera is on</span></span>
-        <span class="lc-why"></span>
-      </button>
-      <div id="sceneGuide" class="scene-guide" hidden>
-        <div class="sg-title">What usually happens here</div>
-        <ol class="sg-steps"></ol>
-        <div class="sg-say" hidden><b>You could say</b><span></span></div>
-        <details class="sg-fix">
-          <summary>Not right? Choose where you are</summary>
-          <div class="sg-choices"></div>
-        </details>
+    <!-- Social setting: where you are, who is here, expressions and body language, on one screen. -->
+    <section class="page" id="page-setting" data-page="setting" role="tabpanel" aria-labelledby="tab-setting">
+      <div class="page-inner">
+        <h2 class="page-title">Social setting</h2>
+        <button id="sceneCard" class="live-card scene-card" aria-expanded="false" aria-controls="sceneGuide">
+          <span class="lc-head"><span class="lc-title">Where you are</span><span class="lc-time" data-time="scene"></span></span>
+          <span class="lc-main"><span class="lc-emoji" aria-hidden="true">📍</span><span class="lc-text">Starts when the camera is on</span></span>
+          <span class="lc-why"></span>
+        </button>
+        <div id="sceneGuide" class="scene-guide" hidden>
+          <div class="sg-title">What usually happens here</div>
+          <ol class="sg-steps"></ol>
+          <div class="sg-say" hidden><b>You could say</b><span></span></div>
+          <details class="sg-fix">
+            <summary>Not right? Choose where you are</summary>
+            <div class="sg-choices"></div>
+          </details>
+        </div>
+
+        <div id="peopleCard" class="live-card people-card">
+          <span class="lc-head"><span class="lc-title">People and body language</span><span class="lc-time" data-time="people"></span></span>
+          <span class="lc-chips"><span class="chip muted">Starts when the camera is on</span></span>
+        </div>
+
+        <div id="exprCard" class="live-card expr-card">
+          <span class="lc-head"><span class="lc-title">Expressions I see</span><span class="lc-time">last 10 seconds</span></span>
+          <div class="expr-bars"><span class="chip muted">Starts when the camera is on</span></div>
+          <p class="hint">Expressions are what faces are doing, not what people feel.</p>
+        </div>
+
+        <div class="live-card">
+          <span class="lc-head"><span class="lc-title">The room</span></span>
+          <div class="meters">
+            <div class="meter" id="mSound"><span class="label">Sound</span><div class="bar"><i></i></div><span class="value">—</span></div>
+            <div class="meter" id="mPace"><span class="label">Talk pace</span><div class="bar"><i></i></div><span class="value">—</span></div>
+            <div class="meter" id="mActivity"><span class="label">Movement</span><div class="bar"><i></i></div><span class="value">—</span></div>
+            <div class="meter" id="mLight"><span class="label">Light</span><div class="bar"><i></i></div><span class="value">—</span></div>
+          </div>
+          <div class="setting-summary" id="settingSummary">Setting: waiting to start…</div>
+        </div>
       </div>
+    </section>
 
-      <!-- 3. Who is here? -->
-      <div id="peopleCard" class="live-card people-card">
-        <span class="lc-head"><span class="lc-title">People near you</span><span class="lc-time" data-time="people"></span></span>
-        <span class="lc-chips"><span class="chip muted">Starts when the camera is on</span></span>
-      </div>
-
-      <!-- Camera check: the live picture with boxes on the faces Grover finds -->
-      <div id="cameraCard" class="live-card camera-card">
-        <span class="lc-head"><span class="lc-title">What the camera sees</span>
-          <button id="btnCamView" type="button" class="ghost cam-toggle" aria-expanded="true" aria-controls="camBody">Hide</button></span>
-        <div id="camBody" class="cam-body">
+    <!-- Live camera: the picture with boxes on the faces Grover finds. -->
+    <section class="page" id="page-camera" data-page="camera" role="tabpanel" aria-labelledby="tab-camera">
+      <div class="page-inner">
+        <h2 class="page-title">What the camera sees</h2>
+        <p class="hint">For checking that the camera works. You don't need to watch it while you talk.</p>
+        <div id="cameraCard" class="camera-card">
           <div class="video-wrap">
             <video id="video" autoplay playsinline muted></video>
             <canvas id="camOverlay" class="cam-overlay" aria-hidden="true"></canvas>
             <canvas id="frameCanvas" width="160" height="120" hidden></canvas>
             <div id="videoPlaceholder" class="video-placeholder">
               <p>Camera is off</p>
-              <small>Press <b>Start listening</b> or try the <b>Demo scenario</b></small>
+              <small>Press <b>Start listening</b> on Home</small>
             </div>
           </div>
           <p id="camStatus" class="cam-status" role="status" aria-live="off">Camera is off</p>
+          <p class="hint">Green boxes are faces, with their expression. Blue boxes are people. Nothing is recorded.</p>
         </div>
       </div>
+    </section>
 
+    <!-- Conversation help: what is happening now, messages to show, captions, earlier prompts. -->
+    <section class="page" id="page-assist" data-page="assist" role="tabpanel" aria-labelledby="tab-assist">
+      <div class="page-inner">
+        <h2 class="page-title">Conversation help</h2>
+        <div id="now" class="now idle" aria-live="polite" aria-atomic="true">
+          <div class="now-label">Right now</div>
+          <div class="now-msg">Not listening right now.</div>
+          <div class="now-tip">Press Start when you are ready.</div>
+          <div class="now-say" hidden></div>
+          <div class="now-actions"></div>
+        </div>
 
-      <div id="captions" class="captions" hidden aria-live="off" aria-label="Live captions">
-        <p class="cap-final"></p>
-        <p class="cap-interim"></p>
+        <div id="convSummary" class="live-card conv-summary">
+          <span class="lc-head"><span class="lc-title" id="convTitle">Conversation so far</span><span class="lc-time" id="convWhen"></span></span>
+          <div class="cs-body"><p class="hint">A short summary appears here once people start talking.</p></div>
+          <span class="lc-title cs-ideas-title">Ideas to keep it going</span>
+          <ul class="cs-ideas"><li class="hint">Ideas appear once people have talked for a little while.</li></ul>
+          <p class="hint">Made on this phone from the captions. Not saved anywhere.</p>
+        </div>
+
+        <div id="quickCards" class="live-card quick-cards" tabindex="-1">
+          <span class="lc-title">Show a message</span>
+          <p class="hint">When talking is hard, show one of these in big letters, or type your own.</p>
+          <div class="qc-grid"></div>
+          <form id="typeShow" class="type-show">
+            <input type="text" id="typeShowText" placeholder="Type a message to show" autocomplete="off" aria-label="Type a message to show" />
+            <button type="submit">Show</button>
+          </form>
+        </div>
+
+        <div id="captions" class="captions" hidden aria-live="off" aria-label="Live captions">
+          <p class="cap-final"></p>
+          <p class="cap-interim"></p>
+        </div>
+        <div class="transcript live-card">
+          <span class="lc-title">What I'm hearing</span>
+          <div id="transcript" class="transcript-body" aria-live="off"></div>
+          <div id="interim" class="interim"></div>
+        </div>
+        <h3 class="earlier-title">Earlier</h3>
+        <div id="feed" class="feed"></div>
       </div>
+    </section>
 
-      <h2 class="earlier-title">Earlier</h2>
-      <div id="feed" class="feed"></div>
-
-      <!-- 4. How am I? A colour scale like those used in many schools, docked within thumb reach. -->
-      <div class="dock">
-      <div class="checkin" role="group" aria-label="How is your energy?">
-        <span class="checkin-q">How is your energy?</span>
-        <div class="mood">
-          <button data-mood="calm" aria-pressed="false" class="zone green"><b>Green</b><small>ready</small></button>
-          <button data-mood="okay" aria-pressed="false" class="zone yellow"><b>Yellow</b><small>a bit much</small></button>
-          <button data-mood="overwhelmed" aria-pressed="false" class="zone red"><b>Red</b><small>too much</small></button>
+    <!-- Calm: check in, calm down, or show the other person what is happening. -->
+    <section class="page" id="page-calm" data-page="calm" role="tabpanel" aria-labelledby="tab-calm">
+      <div class="page-inner">
+        <h2 class="page-title">Calm</h2>
+        <div class="checkin" role="group" aria-label="How is your energy?">
+          <span class="checkin-q">How is your energy?</span>
+          <div class="mood">
+            <button data-mood="calm" aria-pressed="false" class="zone green"><b>Green</b><small>ready</small></button>
+            <button data-mood="okay" aria-pressed="false" class="zone yellow"><b>Yellow</b><small>a bit much</small></button>
+            <button data-mood="overwhelmed" aria-pressed="false" class="zone red"><b>Red</b><small>too much</small></button>
+          </div>
+        </div>
+        <div class="calm-choices">
+          <button type="button" data-calm="breathe"><span aria-hidden="true">🌬️</span><b>Breathe</b><small>Slow breathing, with a long breath out</small></button>
+          <button type="button" data-calm="press"><span aria-hidden="true">✊</span><b>Press</b><small>Squeeze or push to settle your body</small></button>
+          <button type="button" data-calm="ground"><span aria-hidden="true">🦶</span><b>Ground</b><small>5 things you see, 4 you feel…</small></button>
+          <button type="button" data-calm="exit"><span aria-hidden="true">🚪</span><b>Step away</b><small>It's okay to leave</small></button>
+        </div>
+        <button type="button" data-show="stress" class="show-stress"><span aria-hidden="true">🪧</span> Show the other person what is happening</button>
+        <div class="live-card">
+          <span class="lc-title">Things that often help</span>
+          <ul class="tools-list">
+            <li><span aria-hidden="true">🎧</span> Headphones or earplugs to turn the noise down</li>
+            <li><span aria-hidden="true">🕶️</span> Look at something still, or close your eyes for a moment</li>
+            <li><span aria-hidden="true">🌀</span> Fidget, rock or move your hands. Stimming is okay.</li>
+            <li><span aria-hidden="true">💧</span> A drink of water, or something to hold</li>
+            <li><span aria-hidden="true">🤫</span> A quieter spot: a corner, outside, or the bathroom</li>
+          </ul>
         </div>
       </div>
-
-      <button id="btnBreathe" class="breathe-btn">I need a moment</button>
-      </div>
-      <button id="btnDetails" class="ghost details-btn" aria-expanded="false" aria-controls="sensePanel">Show details</button>
     </section>
   </main>
 
-  <!-- First-run welcome: one screen, one choice -->
+  <!-- The newest prompt, on every page except Conversation help, so it isn't missed. -->
+  <button type="button" id="cueBar" class="cue-bar" hidden></button>
+
+  <nav id="tabbar" class="tabbar" role="tablist" aria-label="Pages">
+    <button role="tab" id="tab-home" data-tab="home" aria-controls="page-home"><span aria-hidden="true">🏠</span>Home</button>
+    <button role="tab" id="tab-me" data-tab="me" aria-controls="page-me"><span aria-hidden="true">🙋</span>Me</button>
+    <button role="tab" id="tab-setting" data-tab="setting" aria-controls="page-setting"><span aria-hidden="true">📍</span>Setting</button>
+    <button role="tab" id="tab-camera" data-tab="camera" aria-controls="page-camera"><span aria-hidden="true">📷</span>Camera</button>
+    <button role="tab" id="tab-assist" data-tab="assist" aria-controls="page-assist"><span aria-hidden="true">💬</span>Help</button>
+    <button role="tab" id="tab-calm" data-tab="calm" aria-controls="page-calm"><span aria-hidden="true">🌿</span>Calm</button>
+  </nav>
+
+  <!-- Big letters to show the other person: my card, a message, or "I'm overwhelmed". -->
+  <div id="showCard" class="show-overlay" hidden role="dialog" aria-modal="true" aria-label="Message for the person I'm talking to">
+    <div class="show-body"></div>
+    <button type="button" id="btnShowDone" class="primary">Done</button>
+  </div>
+
+  <!-- First-run setup: a few short steps, every one optional. -->
   <div id="welcome" class="welcome" hidden role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
     <div class="welcome-card">
-      <h2 id="welcomeTitle">Hi, I'm Grover.</h2>
-      <p>I notice <b>where you are</b>, <b>how people near you look</b>, and <b>what is happening</b>, and tell you about the few things that matter. The rest of the time I stay quiet.</p>
-      <h3>What would help most?</h3>
-      <div id="welcomeChoices" class="welcome-choices"></div>
-      <p class="hint">You can change this any time in Settings.</p>
-      <p class="hint">Privacy: sound and camera are checked on this device and nothing is recorded. Live captions may use your browser's speech service. <a href="privacy.html">Privacy note</a></p>
+      <p class="wz-progress" aria-live="polite"></p>
+
+      <section class="wz-step" data-step="0">
+        <h2 id="welcomeTitle">Hi, I'm Grover.</h2>
+        <p>I notice <b>where you are</b>, <b>how people near you look</b>, and <b>what is happening</b>, and tell you about the few things that matter. The rest of the time I stay quiet, so you can keep your eyes on the conversation.</p>
+        <p>First, a few quick questions to make your <b>conversation card</b>: a card you can show people so they know how to help. Every question is optional.</p>
+        <label class="field">What should I call you?
+          <input type="text" id="wzName" autocomplete="off" placeholder="e.g. Sam" />
+        </label>
+      </section>
+
+      <section class="wz-step" data-step="1" hidden>
+        <h2>About you</h2>
+        <p>Only if you want to share. This goes on your card in your own words. Choose any, or add your own.</p>
+        <div id="wzDis" class="picker"></div>
+      </section>
+
+      <section class="wz-step" data-step="2" hidden>
+        <h2>How you talk and listen</h2>
+        <p>Choose everything that sounds like you. Each one adds a line to your card telling the other person what helps.</p>
+        <div id="wzQuirks" class="picker"></div>
+      </section>
+
+      <section class="wz-step" data-step="3" hidden>
+        <h2>What would help most?</h2>
+        <p>This sets what I tell you about. You can change it any time in Settings.</p>
+        <div id="welcomeChoices" class="welcome-choices"></div>
+      </section>
+
+      <section class="wz-step" data-step="4" hidden>
+        <h2>Your conversation card</h2>
+        <p>This is what people see when you press <b>Show my card</b>. You can change it on the <b>Me</b> page.</p>
+        <div id="wzPreview" class="me-card"></div>
+      </section>
+
+      <div class="wz-nav">
+        <button type="button" id="wzBack" class="ghost">Back</button>
+        <button type="button" id="wzSkip" class="ghost">Skip</button>
+        <button type="button" id="wzNext" class="primary">Next</button>
+      </div>
+      <p class="hint">Privacy: everything you enter stays on this phone. Sound and camera are checked on this device and nothing is recorded. <a href="privacy.html">Privacy note</a></p>
     </div>
   </div>
 
@@ -255,7 +389,7 @@
       <ul class="consent-list">
         <li>I use your <b>microphone</b> to notice sound and speech, and your <b>camera</b> (if it is on) to notice movement and people.</li>
         <li>I read faces and body language to describe <b>expressions</b> (like smiling), not feelings. Faces are never stored or identified.</li>
-        <li>This is checked <b>on this device</b>. Nothing is recorded, saved or uploaded.</li>
+        <li>This is checked <b>on this device</b>. Nothing is recorded, saved or uploaded. The conversation summary is wiped when you close Grover.</li>
         <li>Live captions use your browser's speech service, which may send audio to the browser's company to turn it into text.</li>
         <li>Grover is a support tool. It is <b>not a medical device</b> and can make mistakes.</li>
       </ul>
@@ -275,6 +409,7 @@
       <p class="calm-sub">You are not doing anything wrong. This place is just a lot for your body right now.</p>
       <div class="calm-tabs" role="tablist" aria-label="What would help?">
         <button role="tab" aria-selected="true" data-tab="breathe">🌬️ Breathe</button>
+        <button role="tab" aria-selected="false" data-tab="press">✊ Press</button>
         <button role="tab" aria-selected="false" data-tab="ground">🦶 Ground</button>
         <button role="tab" aria-selected="false" data-tab="exit">🚪 Step away</button>
       </div>
@@ -285,13 +420,25 @@
       <section class="calm-panel" data-panel="ground" role="tabpanel" hidden>
         <ol class="calm-steps">
           <li>Feel your feet on the floor.</li>
-          <li>Press your hands together, or hold something in your hand.</li>
-          <li>Name 3 things you can see.</li>
+          <li>Name 5 things you can see.</li>
+          <li>Notice 4 things you can feel, like your clothes or the chair.</li>
+          <li>Listen for 3 sounds.</li>
+          <li>Notice 2 things you can smell, and 1 you can taste.</li>
         </ol>
+        <p class="calm-sub">Go slowly. It's okay to stop after any step.</p>
+      </section>
+      <section class="calm-panel" data-panel="press" role="tabpanel" hidden>
+        <ol class="calm-steps">
+          <li>Press your palms together hard. Count to 10, then let go.</li>
+          <li>Squeeze your hands into fists, then open them slowly.</li>
+          <li>Or push against a wall, or wrap your arms around yourself and squeeze.</li>
+        </ol>
+        <p class="calm-sub">Do it 3 times. Pressure helps your body settle.</p>
       </section>
       <section class="calm-panel" data-panel="exit" role="tabpanel" hidden>
         <p class="calm-permission">You have full permission to leave. You can step outside, go somewhere quiet, or go home.</p>
         <p class="calm-sub">You don't owe anyone eye contact or small talk right now.</p>
+        <button type="button" data-show="stress">🪧 Show the other person what is happening</button>
         <div class="calm-say"><b>You could say</b>
           <span>“I need a quick break. I'll be right back.”</span>
           <span>“I'm going to head home now. Thanks for having me.”</span>

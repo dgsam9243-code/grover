@@ -257,7 +257,7 @@ export class Coach {
       this.lastQuestionAt = null;
       this.fire({ id: "pause", kind: "care", priority: 2, cooldown: 60,
         msg: "There is a pause after the question. That is okay.",
-        tip: "If you are not sure what to say, you can buy time.",
+        tip: "Take your time. It's okay to say you need a moment to think.",
         say: "Hmm, let me think about that." });
     }
 

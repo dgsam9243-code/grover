@@ -7,6 +7,8 @@ import { DEMO_SCRIPT } from "./demo.js";
 import { Perception, EXPRESSIONS, BODY } from "./perception.js";
 import { SceneReader, SCENES } from "./scene.js";
 import { CameraOverlay } from "./overlay.js";
+import { DISABILITIES, QUIRKS, QUICK_CARDS, loadMe, saveMe, hasMe, renderMeCard } from "./conversation.js";
+import { ConversationLog } from "./summary.js";
 import { CUE_TYPES, PROFILES, DEFAULT_PROFILE, LOUD_LEVELS, noisyLevel } from "./profiles.js";
 
 const $ = (id) => document.getElementById(id);
@@ -17,7 +19,7 @@ const els = {
   optProfile: $("optProfile"), profileDesc: $("profileDesc"), optOutput: $("optOutput"),
   cueToggles: $("cueToggles"), optLoud: $("optLoud"), optCaptions: $("optCaptions"), captions: $("captions"),
   optCamera: $("optCamera"), optFacing: $("optFacing"), optName: $("optName"),
-  optDiscreet: $("optDiscreet"), discreetBtn: $("btnDiscreet"), optTextSize: $("optTextSize"),
+  optDiscreet: $("optDiscreet"), discreetBtn: $("btnDiscreet"), optTextSize: $("optTextSize"), optSuggest: $("optSuggest"),
 };
 
 // ---------- settings (remembered locally) ----------
@@ -66,6 +68,7 @@ function loadSettings() {
   if (s.name) els.optName.value = s.name;
   if (s.discreet != null) els.optDiscreet.checked = s.discreet;
   if (s.textSize) els.optTextSize.value = s.textSize;
+  els.optSuggest.checked = Boolean(s.suggest);
   applyTextSize();
 }
 function saveSettings() {
@@ -90,6 +93,8 @@ function getSettings() {
     name: els.optName.value.trim(),
     discreet: els.optDiscreet.checked,
     textSize: els.optTextSize.value,
+    // Scripting what someone says can take their voice away, so suggested words are opt-in.
+    suggest: els.optSuggest.checked,
   };
 }
 loadSettings();
@@ -160,9 +165,10 @@ function applyDiscreet() {
   els.discreetBtn.setAttribute("aria-pressed", String(on));
   els.discreetBtn.textContent = on ? "Full view" : "Discreet";
   // A neutral label nobody nearby would read into; the button does the same thing.
-  const breathe = $("btnBreathe");
-  breathe.textContent = on ? "Pause" : "I need a moment";
-  if (on) breathe.setAttribute("aria-label", "Pause: I need a moment"); else breathe.removeAttribute("aria-label");
+  for (const breathe of document.querySelectorAll(".need-moment")) {
+    breathe.textContent = on ? "Pause" : "I need a moment";
+    if (on) breathe.setAttribute("aria-label", "Pause: I need a moment"); else breathe.removeAttribute("aria-label");
+  }
 }
 els.discreetBtn.onclick = () => {
   els.optDiscreet.checked = !els.optDiscreet.checked;
@@ -250,6 +256,12 @@ function buzz(kind) {
   if (!userHasTapped) return;
   try { navigator.vibrate?.(BUZZ[kind] ?? [50]); } catch {}
 }
+// Messages to hold up for cues where the user might want to ask something.
+const CUE_CARDS = {
+  question: "Can you say that again, please?",
+  pace: "Could you slow down a little, please?",
+  pause: "Please give me a moment.",
+};
 const NOW_IDLE_MS = 25000;
 const nowEl = $("now");
 let nowCue = null;
@@ -257,6 +269,7 @@ let nowTimer = null;
 
 // The newest cue gets the big "Right now" spot; the previous one moves to "Earlier".
 function showCue(cue) {
+  if (running && ["name", "loud", "spike", "siren"].includes(cue.id)) convo.mark(cue.id);
   cue.time = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   archiveNow();
   nowCue = cue;
@@ -267,11 +280,12 @@ function showCue(cue) {
   const tip = nowEl.querySelector(".now-tip");
   tip.hidden = !cue.tip || discreet;
   tip.textContent = cue.tip ?? "";
-  // The phrase box only ever holds exact words the user could say.
+  // The phrase box only ever holds exact words the user could say, and only if they asked for them.
   const say = nowEl.querySelector(".now-say");
-  say.hidden = !cue.say;
+  const suggest = getSettings().suggest;
+  say.hidden = !cue.say || !suggest;
   say.innerHTML = "<b>You could say</b>";
-  if (cue.say) say.append(quoted(cue.say));
+  if (cue.say && suggest) say.append(quoted(cue.say));
   const actions = nowEl.querySelector(".now-actions");
   actions.replaceChildren();
   if (cue.offerBreathing) {
@@ -280,14 +294,24 @@ function showCue(cue) {
     b.onclick = () => openCalm();
     actions.append(b);
   }
+  // Instead of having to say it, the user can hold up a message in big letters (their choice).
+  const card = CUE_CARDS[cue.id];
+  if (card) {
+    const b = document.createElement("button");
+    b.textContent = `🪧 Show: “${card}”`;
+    b.onclick = () => showText(card);
+    actions.append(b);
+  }
   clearTimeout(nowTimer);
   nowTimer = setTimeout(resetNow, NOW_IDLE_MS);
+  showCueBar(cue);
 
   // How the cue reaches the user is set by "How should I tell you?" in Settings.
   if (getSettings().buzz) buzz(cue.kind);
   if (cue.priority >= 2) {
-    if (discreet) speak(cue.say ? `${shortLabel(cue)}. ${cue.say}` : shortLabel(cue));
-    else speak(cue.say ? `${cue.msg} You could say: ${cue.say}` : cue.msg);
+    const sayIt = cue.say && suggest;
+    if (discreet) speak(sayIt ? `${shortLabel(cue)}. ${cue.say}` : shortLabel(cue));
+    else speak(sayIt ? `${cue.msg} You could say: ${cue.say}` : cue.msg);
   }
 }
 
@@ -348,7 +372,7 @@ function buildCard(cue) {
     tip.textContent = cue.tip;
     card.append(tip);
   }
-  if (cue.say) {
+  if (cue.say && getSettings().suggest) {
     const say = document.createElement("div");
     say.className = "say";
     say.innerHTML = "<b>You could say: </b>";
@@ -364,7 +388,8 @@ const calm = new Calm($("calm"), $("calmText"), sayNow);
 let focusBeforeCalm = null;
 function openCalm(tab = "breathe") {
   showCalmTab(tab);
-  if (running) sessionBreaks++;
+  $("calm").querySelector(".calm-say").hidden = !getSettings().suggest;
+  if (running) { sessionBreaks++; convo.mark("break"); }
   focusBeforeCalm = document.activeElement;
   calm.open();
   $("btnCalmDone").focus();
@@ -374,7 +399,8 @@ function closeCalm() {
   calm.close();
   focusBeforeCalm?.focus?.();
 }
-$("btnBreathe").onclick = () => openCalm();
+document.querySelectorAll(".need-moment").forEach((b) => (b.onclick = () => openCalm()));
+document.querySelectorAll("[data-calm]").forEach((b) => (b.onclick = () => openCalm(b.dataset.calm)));
 $("btnCalmDone").onclick = () => {
   closeCalm();
   showCue({ id: "after-calm", kind: "calm", priority: 1, msg: "Welcome back. Go at your own pace." });
@@ -440,7 +466,10 @@ function addTranscript(text) {
   captionFinal(text);
   const p = document.createElement("p");
   p.textContent = text;
-  if (analyzeUtterance(text, getSettings().name).tags.has("question")) p.className = "q";
+  const tags = analyzeUtterance(text, getSettings().name).tags;
+  convo.add(text, { question: tags.has("question") });
+  renderConvo();
+  if (tags.has("question")) p.className = "q";
   els.transcript.append(p);
   els.transcript.scrollTop = els.transcript.scrollHeight;
 }
@@ -574,6 +603,10 @@ function sessionSummary() {
 }
 
 function beginSession() {
+  convo.reset();
+  convoDone = false;
+  els.transcript.replaceChildren();
+  renderConvo();
   sessionStart = Date.now();
   sessionBreaks = 0;
   keepAwake();
@@ -615,6 +648,7 @@ function stopAll() {
   els.summary.textContent = "Setting: paused";
   resetNow();
   if (showSummary) showCue(sessionSummary());
+  if (convo.lines.length) { convoDone = true; renderConvo(); }
 }
 
 // Consent: the first time, explain plainly what the mic and camera are used for before asking the browser.
@@ -683,34 +717,132 @@ els.demo.onclick = () => {
 };
 let demoSee = null, demoMode = false;
 
-// ---------- first-run welcome ----------
-// One screen, one choice: pick the support profile that fits, then start.
+// ---------- first-run setup ----------
+// A few short steps, every one optional: name, (only if they want) disability, how they talk
+// and listen, then a support profile. Builds the conversation card shown on the Me page.
 const WELCOME_KEY = "grover.welcomed";
 const welcomeEl = $("welcome");
 const PICKABLE = ["social", "focus", "sensory", "listening"];
+const STEPS = 5;
+let wzStep = 0, wzMe = null, wzProfile = null, wzDisPick = null, wzQuirkPick = null;
 for (const id of PICKABLE) {
   const b = document.createElement("button");
+  b.type = "button";
   b.className = "welcome-choice";
+  b.dataset.profile = id;
+  b.setAttribute("aria-pressed", "false");
   b.innerHTML = `<b></b><span></span>`;
   b.querySelector("b").textContent = PROFILES[id].label;
   b.querySelector("span").textContent = PROFILES[id].desc;
-  b.onclick = () => finishWelcome(id);
+  b.onclick = () => {
+    wzProfile = id;
+    for (const x of $("welcomeChoices").children) x.setAttribute("aria-pressed", String(x === b));
+    showStep(4);
+  };
   $("welcomeChoices").append(b);
 }
-function finishWelcome(id) {
-  applyProfile(id);
+function openSetup() {
+  wzMe = loadMe();
+  wzProfile = getSettings().profile;
+  $("wzName").value = wzMe.name || getSettings().name;
+  wzDisPick = makePicker($("wzDis"), DISABILITIES.map((d) => ({ id: d, label: d })), wzMe.disabilities, { addLabel: "Add my own" });
+  wzQuirkPick = makePicker($("wzQuirks"), QUIRKS, wzMe.quirks, { addLabel: "Add something else about how I talk", own: wzMe.ownKnow });
+  for (const x of $("welcomeChoices").children) x.setAttribute("aria-pressed", String(x.dataset.profile === wzProfile));
+  welcomeEl.hidden = false;
+  showStep(0);
+}
+function collectSetup() {
+  wzMe.name = $("wzName").value.trim();
+  wzMe.disabilities = wzDisPick.value();
+  wzMe.quirks = wzQuirkPick.value().filter((id) => QUIRKS.some((q) => q.id === id));
+  wzMe.ownKnow = wzQuirkPick.own();
+}
+function showStep(n) {
+  collectSetup();
+  wzStep = Math.max(0, Math.min(STEPS - 1, n));
+  for (const sec of welcomeEl.querySelectorAll(".wz-step")) sec.hidden = Number(sec.dataset.step) !== wzStep;
+  welcomeEl.querySelector(".wz-progress").textContent = `Step ${wzStep + 1} of ${STEPS}`;
+  $("wzBack").hidden = wzStep === 0;
+  $("wzSkip").hidden = wzStep === STEPS - 1;
+  $("wzNext").textContent = wzStep === STEPS - 1 ? "Done" : "Next";
+  if (wzStep === 4) renderMeCard($("wzPreview"), wzMe);
+  welcomeEl.scrollTop = 0;
+  // Focus the step's heading (read out by screen readers), never a choice: nothing gets picked by accident.
+  const step = welcomeEl.querySelector(`.wz-step[data-step="${wzStep}"]`);
+  const target = wzStep === 0 ? $("wzName") : step.querySelector("h2");
+  if (target.tagName === "H2") target.tabIndex = -1;
+  target.focus();
+}
+function finishSetup() {
+  collectSetup();
+  saveMe(wzMe);
+  if (wzMe.name) els.optName.value = wzMe.name;
+  if (wzProfile && wzProfile !== getSettings().profile) applyProfile(wzProfile);
   saveSettings();
   try { localStorage.setItem(WELCOME_KEY, "1"); } catch {}
   welcomeEl.hidden = true;
+  renderMe();
   els.start.focus();
 }
+$("wzBack").onclick = () => showStep(wzStep - 1);
+$("wzNext").onclick = () => (wzStep === STEPS - 1 ? finishSetup() : showStep(wzStep + 1));
+$("wzSkip").onclick = () => showStep(wzStep + 1);
+$("wzName").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); showStep(1); } });
+welcomeEl.addEventListener("keydown", (e) => e.key === "Escape" && finishSetup());
+$("btnSetupAgain").onclick = () => { closeSettings(); openSetup(); };
+
+// A list of choices as toggle buttons (several can be on), plus "add my own" for anything missing.
+// Returns { value(): ids chosen, own(): the user's own extra lines }.
+function makePicker(el, options, chosen, { addLabel, own } = {}) {
+  el.replaceChildren();
+  const ownLines = [...(own ?? [])];
+  const known = new Set(options.map((o) => o.id));
+  // The user's own additions to a fixed list (e.g. a condition not listed) show as chips too.
+  const extra = chosen.filter((c) => !known.has(c));
+  const all = [...options, ...extra.map((c) => ({ id: c, label: c })), ...ownLines.map((l) => ({ id: `own:${l}`, label: l }))];
+  const picked = new Set([...chosen, ...ownLines.map((l) => `own:${l}`)]);
+  const list = document.createElement("div");
+  list.className = "pick-list";
+  const addChip = (o) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "pick";
+    b.textContent = o.label;
+    b.dataset.id = o.id;
+    b.setAttribute("aria-pressed", String(picked.has(o.id)));
+    b.onclick = () => {
+      if (picked.has(o.id)) picked.delete(o.id); else picked.add(o.id);
+      b.setAttribute("aria-pressed", String(picked.has(o.id)));
+    };
+    list.append(b);
+  };
+  all.forEach(addChip);
+  const add = document.createElement("div");
+  add.className = "pick-add";
+  const input = Object.assign(document.createElement("input"), { type: "text", placeholder: addLabel ?? "Add my own", autocomplete: "off" });
+  input.setAttribute("aria-label", addLabel ?? "Add my own");
+  const btn = Object.assign(document.createElement("button"), { type: "button", textContent: "Add" });
+  const doAdd = () => {
+    const text = input.value.trim();
+    if (!text) return;
+    const id = own ? `own:${text}` : text;
+    if (!picked.has(id)) { picked.add(id); addChip({ id, label: text }); }
+    input.value = "";
+    input.focus();
+  };
+  btn.onclick = doAdd;
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); doAdd(); } });
+  add.append(input, btn);
+  el.append(list, add);
+  return {
+    value: () => [...picked].filter((id) => !id.startsWith("own:")),
+    own: () => [...picked].filter((id) => id.startsWith("own:")).map((id) => id.slice(4)),
+  };
+}
+
 let welcomed = true;
 try { welcomed = localStorage.getItem(WELCOME_KEY) === "1"; } catch {}
-if (!welcomed) {
-  welcomeEl.hidden = false;
-  welcomeEl.querySelector(".welcome-choice")?.focus();
-}
-welcomeEl.addEventListener("keydown", (e) => e.key === "Escape" && finishWelcome(DEFAULT_PROFILE));
+if (!welcomed) openSetup();
 
 // ---------- dialogs: keep keyboard focus inside while open ----------
 function trapFocus(dialog) {
@@ -724,39 +856,300 @@ function trapFocus(dialog) {
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
 }
-["welcome", "consent", "settings", "calm"].forEach((id) => trapFocus($(id)));
-
-// ---------- details toggle ----------
-// The main screen is just "Right now" and "I need a moment". Camera, meters,
-// captions and earlier tips live behind one toggle, closed by default.
-const DETAILS_KEY = "grover.details";
-const detailsBtn = $("btnDetails");
-function setDetails(open) {
-  document.body.classList.toggle("show-details", open);
-  detailsBtn.setAttribute("aria-expanded", String(open));
-  detailsBtn.textContent = open ? "Hide details" : "Show details";
-  try { localStorage.setItem(DETAILS_KEY, open ? "1" : "0"); } catch {}
-}
-detailsBtn.onclick = () => setDetails(!document.body.classList.contains("show-details"));
-let detailsOpen = false;
-try { detailsOpen = localStorage.getItem(DETAILS_KEY) === "1"; } catch {}
-setDetails(detailsOpen);
+["welcome", "consent", "settings", "calm", "showCard"].forEach((id) => trapFocus($(id)));
 
 // ---------- camera check: the live picture, with boxes on the faces Grover finds ----------
-// Shown on the main screen so it's easy to see the camera is on and being read. Can be hidden.
-const CAM_KEY = "grover.camView";
+// On its own page, so it's easy to check the camera is on and being read.
 const camOverlay = new CameraOverlay(els.video, $("camOverlay"), $("camStatus"));
-const camBtn = $("btnCamView"), camBody = $("camBody");
-function setCamView(open) {
-  camBody.hidden = !open;
-  camBtn.setAttribute("aria-expanded", String(open));
-  camBtn.textContent = open ? "Hide" : "Show";
-  try { localStorage.setItem(CAM_KEY, open ? "1" : "0"); } catch {}
+
+// ---------- pages: swipe sideways, or tap the tab bar ----------
+// Each page is one screen. The phone is meant to stay down most of the time: pages are for
+// a quick look, and cues reach the user by buzz, voice or the one-line cue bar.
+const pager = $("pager");
+const tabs = [...document.querySelectorAll("#tabbar [data-tab]")];
+const pageIds = tabs.map((t) => t.dataset.tab);
+let currentPage = "home";
+function goTo(id, smooth = true) {
+  const i = pageIds.indexOf(id);
+  if (i < 0) return;
+  pager.scrollTo({ left: i * pager.clientWidth, behavior: smooth && !matchMedia("(prefers-reduced-motion: reduce)").matches ? "smooth" : "auto" });
+  setPage(id);
 }
-camBtn.onclick = () => setCamView(camBody.hidden);
-let camOpen = true;
-try { camOpen = localStorage.getItem(CAM_KEY) !== "0"; } catch {}
-setCamView(camOpen);
+function setPage(id) {
+  if (id === currentPage && tabs.some((t) => t.getAttribute("aria-selected") === "true")) return;
+  currentPage = id;
+  for (const t of tabs) {
+    const on = t.dataset.tab === id;
+    t.setAttribute("aria-selected", String(on));
+    t.tabIndex = on ? 0 : -1;
+  }
+  for (const pg of pager.querySelectorAll(".page")) pg.inert = pg.dataset.page !== id;
+  camOverlay.visible = id === "camera";
+  updateCueBar();
+}
+tabs.forEach((t) => (t.onclick = () => goTo(t.dataset.tab)));
+// Arrow keys move between tabs, as screen-reader and keyboard users expect.
+$("tabbar").addEventListener("keydown", (e) => {
+  const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+  if (!step) return;
+  const i = (pageIds.indexOf(currentPage) + step + pageIds.length) % pageIds.length;
+  goTo(pageIds[i]);
+  tabs[i].focus();
+});
+// Swiping: whichever page is mostly in view becomes the current one.
+let scrollIdle = null;
+pager.addEventListener("scroll", () => {
+  clearTimeout(scrollIdle);
+  scrollIdle = setTimeout(() => setPage(pageIds[Math.round(pager.scrollLeft / pager.clientWidth)] ?? "home"), 80);
+}, { passive: true });
+addEventListener("resize", () => goTo(currentPage, false));
+document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => {
+  goTo(b.dataset.go);
+  if (b.dataset.focus) setTimeout(() => $(b.dataset.focus)?.focus({ preventScroll: false }), 350);
+}));
+
+// ---------- cue bar: the newest cue, one line, on every page but Conversation help ----------
+const cueBar = $("cueBar");
+let barCue = null, barTimer = null;
+function showCueBar(cue) {
+  // Session-start and summary messages don't need to chase the user around.
+  if (["hello", "summary", "after-calm", "demo"].includes(cue.id)) return;
+  barCue = cue;
+  clearTimeout(barTimer);
+  // Gone after 12 s: a glance is enough, and the screen goes back to being still.
+  barTimer = setTimeout(() => { barCue = null; updateCueBar(); }, 12000);
+  updateCueBar();
+}
+function updateCueBar() {
+  cueBar.hidden = !barCue || currentPage === "assist";
+  if (!barCue) return;
+  cueBar.className = `cue-bar ${barCue.kind}`;
+  cueBar.textContent = getSettings().discreet ? shortLabel(barCue) : barCue.msg;
+}
+cueBar.onclick = () => goTo("assist");
+
+// ---------- Home: is everything working? ----------
+const homeChecks = $("homeChecks");
+function setCheck(name, state, ok) {
+  const li = homeChecks.querySelector(`[data-check="${name}"]`);
+  li.querySelector(".hc-state").textContent = state;
+  li.className = ok === true ? "ok" : ok === false ? "bad" : "";
+}
+function renderHome() {
+  const r = perception && perceptionOn ? perception : null;
+  const fps = running && !demoMode ? camOverlay.fps() : 0;
+  if (demoMode) {
+    setCheck("mic", "Demo (not used)"); setCheck("camera", "Demo (not used)"); setCheck("faces", "Demo");
+  } else if (!running) {
+    setCheck("mic", "Off"); setCheck("camera", "Off"); setCheck("faces", "Off");
+  } else {
+    setCheck("mic", calibrating ? "Getting used to the room…" : "Listening", true);
+    if (!getSettings().camera) setCheck("camera", "Turned off in Settings");
+    else if (!els.video.srcObject) setCheck("camera", "Not available", false);
+    else setCheck("camera", fps > 0 ? "Working" : "No picture yet", fps > 0);
+    if (!r) setCheck("faces", getSettings().camera ? "Not used by this profile" : "Off");
+    else if (r.status === "loading") setCheck("faces", `Getting ready… ${Math.round(r.progress * 100)}%`);
+    else if (r.status === "error") setCheck("faces", "Couldn't load", false);
+    else setCheck("faces", r.rate ? `Working · ${live.people?.count ?? 0} ${live.people?.count === 1 ? "person" : "people"} in view` : "Waiting for the camera", Boolean(r.rate));
+  }
+  const { msg } = roomStatus();
+  const homeNow = $("homeNow");
+  if (homeNow.textContent !== msg) homeNow.textContent = msg;
+  els.start.classList.toggle("stop", running);
+  document.querySelector(".phone-down").hidden = !running;
+}
+
+// ---------- Social setting: expressions seen in the last 10 seconds ----------
+function renderExpressions() {
+  const box = document.querySelector("#exprCard .expr-bars");
+  const log = live.exprLog;
+  if (!log.length) {
+    const text = !running && !demoMode ? "Starts when the camera is on" : "No faces close enough to read right now";
+    if (box.textContent !== text) box.replaceChildren(Object.assign(document.createElement("span"), { className: "chip muted", textContent: text }));
+    return;
+  }
+  const counts = {};
+  for (const x of log) counts[x.e] = (counts[x.e] ?? 0) + 1;
+  const rows = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([e, n]) => {
+    const pct = Math.round((100 * n) / log.length);
+    const row = document.createElement("div");
+    row.className = "expr-row";
+    row.innerHTML = `<span class="er-label"></span><span class="bar"><i></i></span><span class="er-pct"></span>`;
+    row.querySelector(".er-label").textContent = `${EXPRESSIONS[e]?.emoji ?? ""} ${EXPRESSIONS[e]?.label ?? e}`;
+    row.querySelector("i").style.width = `${pct}%`;
+    row.querySelector(".er-pct").textContent = `${pct}%`;
+    return row;
+  });
+  const looking = Math.round((100 * log.filter((x) => x.look).length) / log.length);
+  const look = document.createElement("p");
+  look.className = "er-look";
+  look.textContent = `👀 Looking at you: ${looking}% of the time`;
+  box.replaceChildren(...rows, look);
+}
+
+// ---------- My conversation style ----------
+let me = loadMe();
+// The name in Settings and on the card are the same name.
+if (!me.name && getSettings().name) me.name = getSettings().name;
+const meEdit = $("meEdit");
+let meDisPick = null, meQuirkPick = null;
+function renderMe() {
+  me = loadMe();
+  renderMeCard($("meCard"), me);
+}
+renderMe();
+$("btnEditMe").onclick = () => {
+  me = loadMe();
+  $("meName").value = me.name || getSettings().name;
+  meDisPick = makePicker($("meDis"), DISABILITIES.map((d) => ({ id: d, label: d })), me.disabilities, { addLabel: "Add my own" });
+  meQuirkPick = makePicker($("meQuirks"), QUIRKS, me.quirks, { addLabel: "Add something else about how I talk", own: me.ownKnow });
+  $("meTips").checked = me.tips !== false;
+  $("meStress").value = me.stress;
+  meEdit.hidden = false;
+  $("btnEditMe").hidden = true;
+  $("meName").focus();
+};
+function closeMeEdit() {
+  meEdit.hidden = true;
+  $("btnEditMe").hidden = false;
+  $("btnEditMe").focus();
+}
+$("btnMeCancel").onclick = closeMeEdit;
+// Deleting takes two taps, so it never happens by accident.
+const delBtn = $("btnMeDelete");
+let delArmed = null;
+delBtn.onclick = () => {
+  if (!delArmed) {
+    delBtn.textContent = "Tap again to delete";
+    delArmed = setTimeout(() => { delArmed = null; delBtn.textContent = "Delete my card"; }, 4000);
+    return;
+  }
+  clearTimeout(delArmed);
+  delArmed = null;
+  delBtn.textContent = "Delete my card";
+  saveMe({});
+  try { localStorage.removeItem("grover.me"); } catch {}
+  renderMe();
+  closeMeEdit();
+};
+meEdit.onsubmit = (e) => {
+  e.preventDefault();
+  me = {
+    ...me,
+    name: $("meName").value.trim(),
+    disabilities: meDisPick.value(),
+    quirks: meQuirkPick.value(),
+    ownKnow: meQuirkPick.own(),
+    tips: $("meTips").checked,
+    stress: $("meStress").value.trim(),
+  };
+  saveMe(me);
+  if (me.name) { els.optName.value = me.name; saveSettings(); }
+  renderMe();
+  closeMeEdit();
+};
+
+// ---------- show the other person: big letters, full screen ----------
+const showEl = $("showCard");
+let focusBeforeShow = null;
+function showBig(build) {
+  const body = showEl.querySelector(".show-body");
+  body.replaceChildren();
+  build(body);
+  focusBeforeShow = document.activeElement;
+  showEl.hidden = false;
+  showEl.scrollTop = 0;
+  $("btnShowDone").focus();
+}
+function showText(text) {
+  showBig((body) => body.append(Object.assign(document.createElement("p"), { className: "show-text", textContent: text })));
+}
+function closeShow() {
+  showEl.hidden = true;
+  focusBeforeShow?.focus?.();
+}
+$("btnShowDone").onclick = closeShow;
+showEl.addEventListener("keydown", (e) => e.key === "Escape" && closeShow());
+document.querySelectorAll("[data-show]").forEach((b) => (b.onclick = () => {
+  if (b.dataset.show === "me") {
+    me = loadMe();
+    if (!hasMe(me)) { goTo("me"); $("btnEditMe").click(); return; }
+    showBig((body) => renderMeCard(body, me, { big: true }));
+  } else {
+    showText(loadMe().stress || "I need a few minutes. It's not about you.");
+  }
+}));
+
+// Messages to show when talking is hard: the user picks or types them (communication cards).
+const qcGrid = document.querySelector("#quickCards .qc-grid");
+for (const text of QUICK_CARDS) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = text;
+  b.onclick = () => showText(text);
+  qcGrid.append(b);
+}
+$("typeShow").onsubmit = (e) => {
+  e.preventDefault();
+  const text = $("typeShowText").value.trim();
+  if (text) showText(text);
+};
+
+// ---------- conversation summary and ideas (Conversation help) ----------
+const convo = new ConversationLog();
+let convoDone = false;
+function renderConvo() {
+  const card = $("convSummary");
+  const body = card.querySelector(".cs-body");
+  $("convTitle").textContent = convoDone ? "Conversation summary" : "Conversation so far";
+  if (!convo.lines.length) {
+    body.replaceChildren(Object.assign(document.createElement("p"), { className: "hint", textContent: running ? "A short summary appears here once people start talking." : "Start listening to see a summary of the conversation here." }));
+    card.querySelector(".cs-ideas").replaceChildren();
+    card.querySelector(".cs-ideas-title").hidden = true;
+    $("convWhen").textContent = "";
+    return;
+  }
+  const sum = convo.summary(getSettings().name);
+  $("convWhen").textContent = `${sum.minutes} min`;
+  const rows = [];
+  const row = (label, text) => {
+    const p = document.createElement("p");
+    p.className = "cs-row";
+    p.append(Object.assign(document.createElement("b"), { textContent: label }), document.createTextNode(text));
+    rows.push(p);
+  };
+  // "Topics" came up more than once; "Words that came up" is the honest fallback for short talks.
+  if (sum.topics.length) row("Topics: ", sum.topics.join(", "));
+  if (sum.words.length) row(sum.topics.length ? "Also mentioned: " : "Words that came up: ", sum.words.join(", "));
+  if (!sum.topics.length && !sum.words.length) row("Topics: ", "not clear yet");
+  if (sum.questions.length) row("Questions asked: ", sum.questions.map((q) => `“${q}”`).join(" "));
+  const m = sum.moments;
+  const bits = [];
+  if (m.name) bits.push(m.name === 1 ? "your name once" : `your name ${m.name} times`);
+  if (m.loud || m.spike || m.siren) bits.push("some loud moments");
+  if (m.break) bits.push(m.break === 1 ? "1 break" : `${m.break} breaks`);
+  if (bits.length) row("Also: ", bits.join(" · "));
+  body.replaceChildren(...rows);
+  // While talking: ideas to keep it going. After Stop: the summary only.
+  const ideas = card.querySelector(".cs-ideas");
+  card.querySelector(".cs-ideas-title").hidden = convoDone;
+  ideas.replaceChildren(...(convoDone ? [] : convo.ideas(sum).map((t) => Object.assign(document.createElement("li"), { textContent: t }))));
+}
+renderConvo();
+
+// Nothing from a conversation outlives the app: when it is closed or put away, the captions,
+// summary and earlier tips are wiped from memory (they were never written to storage).
+function forgetConversation() {
+  convo.reset();
+  convoDone = false;
+  els.transcript.replaceChildren();
+  els.feed.replaceChildren();
+  captionLines = [];
+  live.exprLog = [];
+  renderConvo();
+}
+addEventListener("pagehide", () => { if (running) stopAll(); forgetConversation(); });
+setPage("home");
 
 // ---------- installable app: offline support ----------
 if ("serviceWorker" in navigator) {
@@ -801,7 +1194,7 @@ $("btnSoundCheck").onclick = () => {
 // Faces, bodies and objects are read on this phone by MediaPipe (perception.js); the setting
 // is worked out from those plus sound (scene.js). The cards show when each was last updated,
 // so it is always clear that Grover is working, and how fresh its reading is.
-const live = { scene: null, sceneAt: 0, people: null, peopleAt: 0, exprHistory: [] };
+const live = { scene: null, sceneAt: 0, people: null, peopleAt: 0, exprHistory: [], exprLog: [] };
 let perception = null, perceptionOn = false, sceneReader = new SceneReader();
 const sceneCard = $("sceneCard"), sceneGuide = $("sceneGuide"), peopleCard = $("peopleCard"), liveStatus = $("liveStatus");
 
@@ -813,6 +1206,9 @@ function ago(t) {
 
 // Takes one reading (from the real camera, or from the demo) and updates scene and people.
 function onPercept(p) {
+  const now = Date.now();
+  for (const f of p.faces ?? []) if (f.readable && f.expression) live.exprLog.push({ t: now, e: f.expression, look: Boolean(f.lookingAtYou) });
+  live.exprLog = live.exprLog.filter((x) => now - x.t < 10000);
   sceneReader.update(p, { slowLevel: coach.slowLevel ?? env.level, colours: env.colours });
   // The user's own choice of setting wins for 10 minutes: they know where they are.
   const cur = live.override && Date.now() < live.override.until ? { ...SCENES[live.override.id], id: live.override.id, sure: "you chose this", why: [] } : sceneReader.current();
@@ -852,7 +1248,7 @@ function renderLive() {
   sceneCard.querySelector(".lc-why").textContent = s?.why?.length ? `Because I notice: ${s.why.join(", ")}` : "";
   sceneGuide.querySelector(".sg-steps").replaceChildren(...(s?.guide ?? []).map((g) => Object.assign(document.createElement("li"), { textContent: g })));
   const say = sceneGuide.querySelector(".sg-say");
-  say.hidden = !s?.say;
+  say.hidden = !s?.say || !getSettings().suggest;
   say.querySelector("span").textContent = s?.say ? `“${s.say}”` : "";
   if (!s && !running) sceneGuide.hidden = true;
 
@@ -870,15 +1266,16 @@ function renderLive() {
     for (const b of p.body) if (BODY[b]) chips.push(chip(BODY[b].emoji, BODY[b].label));
   }
   peopleCard.querySelector(".lc-chips").replaceChildren(...chips);
+  renderExpressions();
+  renderHome();
 
   // Is Grover working? Always say so at the top.
   const t = liveStatus.querySelector(".ls-text");
   liveStatus.classList.toggle("loading", perception?.status === "loading");
-  if (!running) t.textContent = "Paused";
-  else if (demoMode) t.textContent = "Demo · reading the scene every second";
-  else if (perception?.status === "loading") t.textContent = `Getting ready… ${Math.round(perception.progress * 100)}%`;
-  else if (perception?.status === "ready" && perception.rate) t.textContent = `Live · reading ${Math.round(perception.rate)}× a second · 🔒 on this phone`;
-  else t.textContent = "Live · listening · 🔒 on this phone";
+  // One short word up top; Home shows the details (microphone, camera, face reader).
+  const status = !running ? "Paused" : demoMode ? "Demo" : perception?.status === "loading" ? "Getting ready" : "Live 🔒";
+  if (t.textContent !== status) t.textContent = status;
+  liveStatus.title = running ? "Listening. Everything is checked on this phone." : "Not listening";
 }
 setInterval(renderLive, 1000);
 
@@ -915,6 +1312,6 @@ function stopPerception() {
   perceptionOn = false;
   perception?.stop();
   sceneReader = new SceneReader();
-  Object.assign(live, { scene: null, sceneAt: 0, people: null, peopleAt: 0, exprHistory: [] });
+  Object.assign(live, { scene: null, sceneAt: 0, people: null, peopleAt: 0, exprHistory: [], exprLog: [] });
   renderLive();
 }
